@@ -26,8 +26,12 @@ export class ChatSession {
     }
   }
 
-  async send(message: string, systemPrompt: string): Promise<ClaudeResult> {
-    const result = await runClaude(message, {
+  async send(
+    claudeMessage: string,
+    systemPrompt: string,
+    displayMessage?: string,
+  ): Promise<ClaudeResult> {
+    const result = await runClaude(claudeMessage, {
       systemPrompt: !this.sessionId ? systemPrompt : undefined,
       resumeSessionId: this.sessionId,
     })
@@ -36,9 +40,9 @@ export class ChatSession {
       this.sessionId = result.sessionId
     }
 
-    // Append to history
+    // Store the display message (without injected manual content), not what we sent to Claude
     const messages = await this.getHistory()
-    messages.push({ role: 'user', content: message })
+    messages.push({ role: 'user', content: displayMessage ?? claudeMessage })
     messages.push({ role: 'assistant', content: result.text })
     await this.saveHistory(messages)
 

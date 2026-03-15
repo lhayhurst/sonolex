@@ -177,7 +177,7 @@ export function createApp(storage: Storage, dataDir?: string) {
         ? `${message}\n\n${buildManualContext(relevant)}`
         : message
 
-      const result = await chatSession.send(enrichedMessage, systemPrompt)
+      const result = await chatSession.send(enrichedMessage, systemPrompt, message)
       res.json({ text: result.text, usage: result.usage })
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Chat failed'

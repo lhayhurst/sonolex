@@ -3,6 +3,15 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ManualsPage } from './ManualsPage'
 
+// Mock AppShell context
+vi.mock('../components/layout/AppShell', () => ({
+  useUpload: () => ({
+    status: 'idle', fileName: '', elapsed: 0, estimatedMs: null,
+    usage: null, error: '', startUpload: vi.fn(), dismiss: vi.fn(),
+  }),
+  useManualCallback: () => ({ register: vi.fn(), unregister: vi.fn() }),
+}))
+
 describe('ManualsPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -82,14 +91,11 @@ describe('ManualsPage', () => {
       expect(screen.getByText('Monolit Manual')).toBeInTheDocument()
     })
 
-    // Summary should be hidden initially
     expect(screen.queryByText(/versatile 8-slider/i)).not.toBeInTheDocument()
 
-    // Click toggle to show
     fireEvent.click(screen.getByRole('button', { name: /show description/i }))
     expect(screen.getByText(/versatile 8-slider/i)).toBeInTheDocument()
 
-    // Click again to hide
     fireEvent.click(screen.getByRole('button', { name: /hide description/i }))
     expect(screen.queryByText(/versatile 8-slider/i)).not.toBeInTheDocument()
   })

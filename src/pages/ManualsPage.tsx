@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PdfUpload } from '../components/manuals/PdfUpload'
+import { useManualCallback } from '../components/layout/AppShell'
 import type { Manual } from '../types/index'
 
 function ManualCard({ manual, onDelete }: { manual: Manual; onDelete: (id: string) => void }) {
@@ -58,6 +59,7 @@ function ManualCard({ manual, onDelete }: { manual: Manual; onDelete: (id: strin
 export function ManualsPage() {
   const [manuals, setManuals] = useState<Manual[]>([])
   const [loading, setLoading] = useState(true)
+  const { register, unregister } = useManualCallback()
 
   const loadManuals = useCallback(async () => {
     try {
@@ -75,9 +77,14 @@ export function ManualsPage() {
     loadManuals()
   }, [loadManuals])
 
-  function handleUploaded(manual: Manual) {
-    setManuals(prev => [...prev, manual])
-  }
+  // Listen for new manuals from the global upload
+  useEffect(() => {
+    const cb = (manual: Manual) => {
+      setManuals(prev => [...prev, manual])
+    }
+    register(cb)
+    return () => unregister(cb)
+  }, [register, unregister])
 
   async function handleDelete(id: string) {
     await fetch(`/api/manuals/${id}`, { method: 'DELETE' })
@@ -88,7 +95,7 @@ export function ManualsPage() {
     <div>
       <h1>Manuals</h1>
 
-      <PdfUpload onUploaded={handleUploaded} />
+      <PdfUpload />
 
       {loading ? (
         <p>Loading...</p>

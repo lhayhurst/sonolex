@@ -9,10 +9,9 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: '/studio', label: 'Studio', icon: '◇' },
   { to: '/manuals', label: 'Manuals', icon: '☰' },
   { to: '/chat', label: 'Chat', icon: '◈' },
-  { to: '/settings', label: 'Settings', icon: '⚙' },
+  { to: '/studio', label: 'Studio', icon: '◇' },
 ]
 
 export function Sidebar({ collapsed, onToggleCollapse, theme, onThemeChange }: SidebarProps) {

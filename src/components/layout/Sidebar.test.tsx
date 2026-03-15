@@ -22,12 +22,12 @@ describe('Sidebar', () => {
     expect(screen.getByText('sonolex')).toBeInTheDocument()
   })
 
-  it('renders navigation links with icons', () => {
+  it('renders navigation links in workflow order', () => {
     renderSidebar()
-    expect(screen.getByRole('link', { name: /studio/i })).toHaveAttribute('href', '/studio')
     expect(screen.getByRole('link', { name: /manuals/i })).toHaveAttribute('href', '/manuals')
     expect(screen.getByRole('link', { name: /chat/i })).toHaveAttribute('href', '/chat')
-    expect(screen.getByRole('link', { name: /settings/i })).toHaveAttribute('href', '/settings')
+    expect(screen.getByRole('link', { name: /studio/i })).toHaveAttribute('href', '/studio')
+    expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument()
   })
 
   it('highlights the active link', () => {

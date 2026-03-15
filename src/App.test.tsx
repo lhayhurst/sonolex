@@ -19,6 +19,12 @@ function mockClaudeAvailable() {
         json: () => Promise.resolve({ claudeAvailable: true }),
       })
     }
+    if (url === '/api/studio-doc') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ content: null }),
+      })
+    }
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve([]),
@@ -52,27 +58,27 @@ describe('App', () => {
       })
     })
 
-    it('shows navigation links', async () => {
+    it('shows navigation links (Manuals, Chat, Studio)', async () => {
       renderApp()
       await waitFor(() => {
-        expect(screen.getByRole('link', { name: /studio/i })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /manuals/i })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /chat/i })).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /studio/i })).toBeInTheDocument()
       })
     })
 
-    it('renders studio page on /studio', async () => {
-      renderApp('/studio')
+    it('does not show settings link', async () => {
+      renderApp()
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /studio/i })).toBeInTheDocument()
+        expect(screen.getByText('sonolex')).toBeInTheDocument()
       })
+      expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument()
     })
 
-    it('redirects / to /studio', async () => {
+    it('redirects / to /manuals', async () => {
       renderApp('/')
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /studio/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /manuals/i })).toBeInTheDocument()
       })
     })
   })

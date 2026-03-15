@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sonolex — Know Your Studio</title>
+  <meta name="description" content="A local-first app that reads your equipment manuals, understands your gear, and documents your studio setup.">
+  <style>
+    :root {
+      --text: #374151;
+      --text-h: #111827;
+      --text-muted: #9ca3af;
+      --bg: #ffffff;
+      --bg-alt: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-bg: rgba(99, 102, 241, 0.08);
+      --warm: #c2410c;
+      --daw: #f59e0b;
+      --sans: system-ui, -apple-system, sans-serif;
+      --mono: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #d1d5db;
+        --text-h: #f9fafb;
+        --text-muted: #6b7280;
+        --bg: #111827;
+        --bg-alt: #1f2937;
+        --border: #374151;
+        --accent: #818cf8;
+        --accent-hover: #6366f1;
+        --accent-bg: rgba(129, 140, 248, 0.12);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font: 16px/1.6 var(--sans);
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: 80px 0;
+    }
+
+    /* Nav */
+    nav {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-h);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover { color: var(--text-h); }
+
+    /* Hero */
+    .hero {
+      padding: 120px 0 80px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-bg);
+      border-radius: 20px;
+      margin-bottom: 24px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-size: 56px;
+      font-weight: 700;
+      color: var(--text-h);
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 560px;
+      margin: 0 auto 40px;
+      line-height: 1.5;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-secondary {
+      background: none;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--text-muted);
+      color: var(--text-h);
+    }
+
+    /* App Preview */
+    .preview {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-top: 60px;
+      text-align: left;
+    }
+
+    .preview-window {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .preview-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--bg-alt);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .preview-body {
+      display: flex;
+      min-height: 340px;
+    }
+
+    .preview-sidebar {
+      width: 180px;
+      padding: 16px;
+      border-right: 1px solid var(--border);
+      background: var(--bg-alt);
+    }
+
+    .preview-sidebar-brand {
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text-h);
+      margin-bottom: 20px;
+    }
+
+    .preview-nav-item {
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-radius: 6px;
+      margin-bottom: 2px;
+    }
+
+    .preview-nav-item.active {
+      color: var(--accent);
+      background: var(--accent-bg);
+      font-weight: 500;
+    }
+
+    .preview-content {
+      flex: 1;
+      padding: 24px;
+    }
+
+    .preview-content h3 {
+      font-size: 18px;
+      color: var(--text-h);
+      margin-bottom: 16px;
+    }
+
+    .preview-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .preview-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-h);
+    }
+
+    .preview-card-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .preview-card-link {
+      font-size: 12px;
+      color: var(--accent);
+      margin-top: 6px;
+      display: inline-block;
+    }
+
+    /* Workflow */
+    .workflow {
+      background: var(--bg-alt);
+    }
+
+    .workflow h2 {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-h);
+      text-align: center;
+      margin-bottom: 60px;
+      letter-spacing: -1px;
+    }
+
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+
+    .workflow-step {
+      text-align: center;
+    }
+
+    .step-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+
+    .workflow-step h3 {
+      font-size: 18px;
+      color: var(--text-h);
+      margin-bottom: 8px;
+    }
+
+    .workflow-step p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Features */
+    .features h2 {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-h);
+      text-align: center;
+      margin-bottom: 16px;
+      letter-spacing: -1px;
+    }
+
+    .features > .container > p {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .feature-card h3 {
+      font-size: 16px;
+      color: var(--text-h);
+      margin-bottom: 6px;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Themes */
+    .themes {
+      background: var(--bg-alt);
+    }
+
+    .themes h2 {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-h);
+      text-align: center;
+      margin-bottom: 48px;
+      letter-spacing: -1px;
+    }
+
+    .theme-showcase {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .theme-card {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .theme-card-header {
+      padding: 16px 20px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .theme-card-body {
+      padding: 16px 20px;
+      font-size: 13px;
+      min-height: 80px;
+    }
+
+    .theme-clean .theme-card-header { background: #f9fafb; color: #111827; border-bottom: 1px solid #e5e7eb; }
+    .theme-clean .theme-card-body { background: #ffffff; color: #374151; }
+
+    .theme-warm .theme-card-header { background: #f5f0eb; color: #1c1917; border-bottom: 1px solid #e7e0d8; }
+    .theme-warm .theme-card-body { background: #faf8f5; color: #44403c; }
+
+    .theme-daw .theme-card-header { background: #1e1e22; color: #e4e4e7; border-bottom: 1px solid #2e2e33; }
+    .theme-daw .theme-card-body { background: #18181b; color: #a1a1aa; }
+
+    .theme-accent-clean { color: #6366f1; }
+    .theme-accent-warm { color: #c2410c; }
+    .theme-accent-daw { color: #f59e0b; }
+
+    /* Get Started */
+    .get-started {
+      text-align: center;
+    }
+
+    .get-started h2 {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-h);
+      margin-bottom: 12px;
+      letter-spacing: -1px;
+    }
+
+    .get-started > .container > p {
+      color: var(--text-muted);
+      margin-bottom: 40px;
+    }
+
+    .install-steps {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 32px;
+      text-align: left;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .install-step {
+      margin-bottom: 20px;
+    }
+
+    .install-step:last-child { margin-bottom: 0; }
+
+    .install-step-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-h);
+      margin-bottom: 6px;
+    }
+
+    .install-step code {
+      display: block;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--text-h);
+      overflow-x: auto;
+    }
+
+    /* Footer */
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 36px; }
+      .hero p { font-size: 17px; }
+      .workflow-steps { grid-template-columns: 1fr; gap: 40px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .theme-showcase { grid-template-columns: 1fr; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      section { padding: 60px 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="container">
+      <a href="#" class="nav-brand">sonolex</a>
+      <ul class="nav-links">
+        <li><a href="#workflow">How it works</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#get-started">Get started</a></li>
+        <li><a href="https://github.com/lhayhurst/sonolex">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="container">
+      <span class="hero-badge">Open Source</span>
+      <h1>Know your <em>studio</em></h1>
+      <p>Upload your equipment manuals. Chat with Claude about your gear. Build a living document of your entire setup.</p>
+      <div class="hero-actions">
+        <a href="#get-started" class="btn btn-primary">Get started</a>
+        <a href="https://github.com/lhayhurst/sonolex" class="btn btn-secondary">View on GitHub</a>
+      </div>
+
+      <div class="preview">
+        <div class="preview-window">
+          <div class="preview-titlebar">
+            <span class="preview-dot"></span>
+            <span class="preview-dot"></span>
+            <span class="preview-dot"></span>
+          </div>
+          <div class="preview-body">
+            <div class="preview-sidebar">
+              <div class="preview-sidebar-brand">sonolex</div>
+              <div class="preview-nav-item active">Manuals</div>
+              <div class="preview-nav-item">Chat</div>
+              <div class="preview-nav-item">Studio</div>
+              <div class="preview-nav-item">About</div>
+            </div>
+            <div class="preview-content">
+              <h3>Manuals</h3>
+              <div class="preview-card">
+                <div class="preview-card-title">MONOLIT 2.0.0 User Manual</div>
+                <div class="preview-card-meta">MONOLIT_2.0.0.pdf &middot; 45 sections</div>
+                <span class="preview-card-link">Open PDF</span>
+              </div>
+              <div class="preview-card">
+                <div class="preview-card-title">Chase Bliss Clean Manual</div>
+                <div class="preview-card-meta">Clean_Manual.pdf &middot; 28 sections</div>
+                <span class="preview-card-link">Open PDF</span>
+              </div>
+              <div class="preview-card">
+                <div class="preview-card-title">QuNexus RED User Manual</div>
+                <div class="preview-card-meta">QuNexus_RED_Manual.pdf &middot; 32 sections</div>
+                <span class="preview-card-link">Open PDF</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="workflow" id="workflow">
+    <div class="container">
+      <h2>Three steps to a documented studio</h2>
+      <div class="workflow-steps">
+        <div class="workflow-step">
+          <div class="step-number">1</div>
+          <h3>Upload Manuals</h3>
+          <p>Drop your equipment PDFs. Claude reads them and extracts every MIDI CC, spec, and connection detail into searchable sections.</p>
+        </div>
+        <div class="workflow-step">
+          <div class="step-number">2</div>
+          <h3>Chat</h3>
+          <p>Ask anything about your gear. "What are the MIDI CCs for the Clean?" Claude knows your manuals and gives specific, technical answers.</p>
+        </div>
+        <div class="workflow-step">
+          <div class="step-number">3</div>
+          <h3>Build Your Studio</h3>
+          <p>Tell Claude how your gear connects. It builds a comprehensive setup document — signal flow, MIDI routing, gain staging, everything.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <h2>Built for musicians who tinker</h2>
+      <p>Every feature designed around the workflow of setting up and understanding studio gear.</p>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📋</div>
+          <h3>AI-Powered Manual Conversion</h3>
+          <p>Claude structures your raw PDFs into titled, summarized, section-organized documents. MIDI CC maps, specs, and routing details preserved.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💬</div>
+          <h3>Context-Aware Chat</h3>
+          <p>Mention a device and Claude automatically loads that manual. Ask about connections, troubleshoot issues, or plan your signal chain.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔌</div>
+          <h3>Living Studio Document</h3>
+          <p>Your studio setup evolves through conversation. "Add the Monolit" — Claude asks how it's connected, then updates your doc.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Local-First & Private</h3>
+          <p>Runs entirely on your machine. No cloud database, no accounts, no data leaving your computer. Uses your existing Claude subscription.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Smart Progress Tracking</h3>
+          <p>Conversion time estimates that improve with each upload. Global status bar persists across pages so you never lose track.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧪</div>
+          <h3>Built with TDD</h3>
+          <p>157 tests across 23 files. Every feature built test-first using Dan North's CUPID framework. Red-green-refactor, every time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="themes" id="themes">
+    <div class="container">
+      <h2>Your vibe, your theme</h2>
+      <div class="theme-showcase">
+        <div class="theme-card theme-clean">
+          <div class="theme-card-header">Clean</div>
+          <div class="theme-card-body">
+            Light, minimal, <span class="theme-accent-clean">Linear-esque</span>. For the organized mind.
+          </div>
+        </div>
+        <div class="theme-card theme-warm">
+          <div class="theme-card-header">Warm</div>
+          <div class="theme-card-body">
+            Creative, <span class="theme-accent-warm">earthy tones</span>. Feels like the studio it documents.
+          </div>
+        </div>
+        <div class="theme-card theme-daw">
+          <div class="theme-card-header">DAW</div>
+          <div class="theme-card-body">
+            Dark, dense, <span class="theme-accent-daw">at home next to Ableton</span>. For late night sessions.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="get-started" id="get-started">
+    <div class="container">
+      <h2>Get started in 60 seconds</h2>
+      <p>Requires Node.js and a Claude subscription (Pro, Max, or Team).</p>
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-label">1. Install Claude Code CLI</div>
+          <code>npm install -g @anthropic-ai/claude-code && claude</code>
+        </div>
+        <div class="install-step">
+          <div class="install-step-label">2. Clone and install</div>
+          <code>git clone https://github.com/lhayhurst/sonolex.git && cd sonolex && npm install</code>
+        </div>
+        <div class="install-step">
+          <div class="install-step-label">3. Run</div>
+          <code>make run</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>sonolex is open source. <a href="https://github.com/lhayhurst/sonolex">View on GitHub</a>.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

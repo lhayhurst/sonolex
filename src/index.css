@@ -389,6 +389,77 @@ body {
   font-style: italic;
 }
 
+/* Markdown inside assistant messages */
+.chat-message-assistant .chat-message-content h1,
+.chat-message-assistant .chat-message-content h2,
+.chat-message-assistant .chat-message-content h3 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+
+.chat-message-assistant .chat-message-content h1 { font-size: 16px; }
+
+.chat-message-assistant .chat-message-content p {
+  margin: 4px 0;
+}
+
+.chat-message-assistant .chat-message-content ul,
+.chat-message-assistant .chat-message-content ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.chat-message-assistant .chat-message-content li {
+  margin: 2px 0;
+}
+
+.chat-message-assistant .chat-message-content code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.chat-message-assistant .chat-message-content pre {
+  margin: 8px 0;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.chat-message-assistant .chat-message-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.chat-message-assistant .chat-message-content table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+  width: 100%;
+}
+
+.chat-message-assistant .chat-message-content th,
+.chat-message-assistant .chat-message-content td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.chat-message-assistant .chat-message-content th {
+  background: var(--bg);
+  font-weight: 600;
+}
+
+.chat-message-assistant .chat-message-content strong {
+  color: var(--text-h);
+}
+
 .chat-input-bar {
   display: flex;
   gap: 8px;

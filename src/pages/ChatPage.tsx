@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Markdown from 'react-markdown'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -88,7 +89,9 @@ export function ChatPage() {
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`chat-message chat-message-${msg.role}`}>
-            <div className="chat-message-content">{msg.content}</div>
+            <div className="chat-message-content">
+              {msg.role === 'assistant' ? <Markdown>{msg.content}</Markdown> : msg.content}
+            </div>
           </div>
         ))}
         {sending && (

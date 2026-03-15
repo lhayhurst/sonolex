@@ -43,7 +43,7 @@ describe('StudioPage', () => {
     })
   })
 
-  it('shows import button when no doc exists', async () => {
+  it('shows upload and paste options when no doc exists', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ content: null }),
@@ -56,7 +56,8 @@ describe('StudioPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /import/i })).toBeInTheDocument()
+      expect(screen.getByText(/upload file/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /paste text/i })).toBeInTheDocument()
     })
   })
 

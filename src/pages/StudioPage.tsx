@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Markdown from 'react-markdown'
 
 type ViewMode = 'view' | 'edit'
@@ -9,6 +9,7 @@ export function StudioPage() {
   const [mode, setMode] = useState<ViewMode>('view')
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadDoc = useCallback(async () => {
     try {
@@ -34,6 +35,19 @@ export function StudioPage() {
   function handleImport() {
     setEditContent('')
     setMode('edit')
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = reader.result as string
+      setEditContent(text)
+      setMode('edit')
+    }
+    reader.readAsText(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleSave() {
@@ -92,9 +106,21 @@ export function StudioPage() {
           <p className="studio-empty-hint">
             Import an existing studio document, or use the Chat to build one from your uploaded manuals.
           </p>
-          <button className="studio-btn studio-btn-primary" onClick={handleImport} aria-label="Import studio doc">
-            Import
-          </button>
+          <div className="studio-empty-actions">
+            <label className="studio-btn studio-btn-primary">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".md,.txt,.markdown"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+              Upload file
+            </label>
+            <button className="studio-btn" onClick={handleImport} aria-label="Paste text">
+              Paste text
+            </button>
+          </div>
         </div>
       </div>
     )

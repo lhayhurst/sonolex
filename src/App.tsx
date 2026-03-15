@@ -5,6 +5,7 @@ import { SetupScreen } from './components/setup/SetupScreen'
 import { ManualsPage } from './pages/ManualsPage'
 import { ChatPage } from './pages/ChatPage'
 import { StudioPage } from './pages/StudioPage'
+import { AboutPage } from './pages/AboutPage'
 
 type AppState = 'loading' | 'setup' | 'ready'
 
@@ -40,6 +41,7 @@ function App() {
         <Route path="/manuals" element={<ManualsPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/studio" element={<StudioPage />} />
+        <Route path="/about" element={<AboutPage />} />
       </Route>
     </Routes>
   )

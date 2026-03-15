@@ -12,6 +12,7 @@ const navItems = [
   { to: '/manuals', label: 'Manuals', icon: '☰' },
   { to: '/chat', label: 'Chat', icon: '◈' },
   { to: '/studio', label: 'Studio', icon: '◇' },
+  { to: '/about', label: 'About', icon: '?' },
 ]
 
 export function Sidebar({ collapsed, onToggleCollapse, theme, onThemeChange }: SidebarProps) {

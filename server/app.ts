@@ -10,6 +10,7 @@ import { convertToManual } from './lib/manual-converter'
 import { isClaudeAvailable } from './lib/claude-cli'
 import { ConversionHistory } from './lib/conversion-history'
 import { ChatSession } from './lib/chat-session'
+import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './lib/studio-prompt'
 import { createManual } from '../src/types/index'
 import type { StudioData, Manual } from '../src/types/index'
@@ -20,6 +21,7 @@ export function createApp(storage: Storage, dataDir?: string) {
   const pdfsDir = dataDir ? join(dataDir, 'pdfs') : undefined
   const history = new ConversionHistory(dataDir ?? '.')
   let chatSession = new ChatSession(dataDir ?? '.')
+  const studioDoc = new StudioDoc(dataDir ?? '.')
   const app = express()
   app.use(cors())
   app.use(express.json())
@@ -169,16 +171,33 @@ export function createApp(storage: Storage, dataDir?: string) {
 
     try {
       const manuals = await storage.listManuals()
+      const currentStudioDoc = await studioDoc.load()
       const systemPrompt = buildSystemPrompt(manuals)
+
+      // Build enriched message with context
+      let enrichedMessage = message
 
       // Inject relevant manual content if the user mentions a device
       const relevant = findRelevantManuals(message, manuals)
-      const enrichedMessage = relevant.length > 0
-        ? `${message}\n\n${buildManualContext(relevant)}`
-        : message
+      if (relevant.length > 0) {
+        enrichedMessage += '\n\n' + buildManualContext(relevant)
+      }
+
+      // If user wants to update the studio, include the current doc and instructions
+      const wantsStudioUpdate = /\b(update|add|change|modify|integrate|include|remove)\b.*\bstudio\b|\bstudio\b.*\b(update|add|change|modify|integrate|include|remove)\b/i.test(message)
+      if (wantsStudioUpdate && currentStudioDoc) {
+        enrichedMessage += `\n\n--- Current Studio Document ---\n\n${currentStudioDoc}\n\n--- Instructions ---\nPlease update the studio document based on the user's request. Return the COMPLETE updated document wrapped in a \`\`\`studio-update code fence. The document should be comprehensive markdown.`
+      }
 
       const result = await chatSession.send(enrichedMessage, systemPrompt, message)
-      res.json({ text: result.text, usage: result.usage })
+
+      // Check if Claude returned a studio update
+      const studioUpdateMatch = result.text.match(/```studio-update\n([\s\S]*?)\n```/)
+      if (studioUpdateMatch) {
+        await studioDoc.save(studioUpdateMatch[1])
+      }
+
+      res.json({ text: result.text, usage: result.usage, studioUpdated: !!studioUpdateMatch })
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Chat failed'
       res.status(500).json({ error: errMsg })
@@ -193,6 +212,22 @@ export function createApp(storage: Storage, dataDir?: string) {
   app.delete('/api/chat/history', async (_req, res) => {
     await chatSession.clear()
     res.status(204).send()
+  })
+
+  // Studio doc
+  app.get('/api/studio-doc', async (_req, res) => {
+    const content = await studioDoc.load()
+    res.json({ content })
+  })
+
+  app.put('/api/studio-doc', async (req, res) => {
+    const { content } = req.body as { content?: string }
+    if (!content) {
+      res.status(400).json({ error: 'content is required' })
+      return
+    }
+    await studioDoc.save(content)
+    res.json({ ok: true })
   })
 
   // Config

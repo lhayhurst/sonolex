@@ -272,6 +272,35 @@ describe('API routes', () => {
     })
   })
 
+  describe('POST /api/chat with studio update', () => {
+    it('includes current studio doc in context when user asks to update', async () => {
+      // Set up a studio doc
+      await request(app)
+        .put('/api/studio-doc')
+        .send({ content: '# My Studio\n\nOld content.' })
+        .set('Content-Type', 'application/json')
+
+      // Mock runClaude to return a response with STUDIO_UPDATE marker
+      const { runClaude: mockRun } = await import('./lib/claude-cli')
+      vi.mocked(mockRun).mockResolvedValueOnce({
+        text: 'I\'ve updated your studio doc.\n\n```studio-update\n# My Studio\n\nUpdated content with Monolit.\n```',
+        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
+        sessionId: 'test-session-456',
+      })
+
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ message: 'Please update my studio to include the Monolit' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+
+      // Verify the studio doc was updated
+      const docRes = await request(app).get('/api/studio-doc')
+      expect(docRes.body.content).toContain('Updated content with Monolit')
+    })
+  })
+
   describe('GET /api/chat/history', () => {
     it('returns empty history initially', async () => {
       const res = await request(app).get('/api/chat/history')
@@ -305,6 +334,45 @@ describe('API routes', () => {
 
       const res = await request(app).get('/api/chat/history')
       expect(res.body).toEqual([])
+    })
+  })
+
+  describe('GET /api/studio-doc', () => {
+    it('returns null when no doc exists', async () => {
+      const res = await request(app).get('/api/studio-doc')
+      expect(res.status).toBe(200)
+      expect(res.body.content).toBeNull()
+    })
+
+    it('returns saved doc', async () => {
+      await request(app)
+        .put('/api/studio-doc')
+        .send({ content: '# My Studio' })
+        .set('Content-Type', 'application/json')
+
+      const res = await request(app).get('/api/studio-doc')
+      expect(res.status).toBe(200)
+      expect(res.body.content).toBe('# My Studio')
+    })
+  })
+
+  describe('PUT /api/studio-doc', () => {
+    it('saves studio doc', async () => {
+      const res = await request(app)
+        .put('/api/studio-doc')
+        .send({ content: '# Updated Studio' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+    })
+
+    it('returns 400 when no content', async () => {
+      const res = await request(app)
+        .put('/api/studio-doc')
+        .send({})
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(400)
     })
   })
 

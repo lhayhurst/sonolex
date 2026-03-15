@@ -507,6 +507,169 @@ body {
 }
 
 /* ============================================
+   Studio Page
+   ============================================ */
+.studio-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.studio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.studio-header h1 {
+  margin: 0;
+}
+
+.studio-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.studio-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.studio-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-h);
+}
+
+.studio-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.studio-btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.studio-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.studio-empty {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+}
+
+.studio-empty p {
+  margin: 0 0 8px;
+}
+
+.studio-empty-hint {
+  font-size: 13px;
+  margin-bottom: 16px !important;
+}
+
+.studio-editor {
+  flex: 1;
+  width: 100%;
+  padding: 16px;
+  font-size: 14px;
+  font-family: var(--mono);
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  resize: none;
+  outline: none;
+}
+
+.studio-editor:focus {
+  border-color: var(--accent);
+}
+
+/* Studio doc rendered markdown */
+.studio-doc {
+  flex: 1;
+  overflow-y: auto;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.studio-doc h1 { font-size: 22px; margin: 24px 0 8px; }
+.studio-doc h2 { font-size: 18px; margin: 20px 0 8px; }
+.studio-doc h3 { font-size: 15px; margin: 16px 0 6px; }
+.studio-doc h1:first-child { margin-top: 0; }
+
+.studio-doc p { margin: 6px 0; }
+
+.studio-doc ul, .studio-doc ol {
+  margin: 6px 0;
+  padding-left: 24px;
+}
+
+.studio-doc li { margin: 2px 0; }
+
+.studio-doc code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg-sidebar);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.studio-doc pre {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.studio-doc pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.studio-doc table {
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  width: 100%;
+}
+
+.studio-doc th, .studio-doc td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.studio-doc th {
+  background: var(--bg-sidebar);
+  font-weight: 600;
+}
+
+.studio-doc strong { color: var(--text-h); }
+
+.studio-doc hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+/* ============================================
    Theme Switcher
    ============================================ */
 .theme-switcher {

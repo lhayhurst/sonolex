@@ -27,7 +27,7 @@ export function PdfUpload() {
     return (
       <div className="pdf-upload">
         <div className="pdf-upload-zone pdf-upload-active">
-          <p className="pdf-upload-status">Converting {upload.fileName}... check sidebar for progress</p>
+          <p className="pdf-upload-status">Converting {upload.fileName}...</p>
         </div>
       </div>
     )

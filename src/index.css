@@ -1,0 +1,279 @@
+/* ============================================
+   Theme: Clean (default) — Light, minimal, Linear-esque
+   ============================================ */
+[data-theme="clean"] {
+  --text: #374151;
+  --text-h: #111827;
+  --text-muted: #9ca3af;
+  --bg: #ffffff;
+  --bg-sidebar: #f9fafb;
+  --bg-hover: #f3f4f6;
+  --border: #e5e7eb;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-bg: rgba(99, 102, 241, 0.08);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+/* ============================================
+   Theme: Warm — Creative, music-production feel
+   ============================================ */
+[data-theme="warm"] {
+  --text: #44403c;
+  --text-h: #1c1917;
+  --text-muted: #a8a29e;
+  --bg: #faf8f5;
+  --bg-sidebar: #f5f0eb;
+  --bg-hover: #ede8e1;
+  --border: #e7e0d8;
+  --accent: #c2410c;
+  --accent-hover: #9a3412;
+  --accent-bg: rgba(194, 65, 12, 0.08);
+  --shadow: 0 1px 3px rgba(120, 80, 40, 0.1);
+  color-scheme: light;
+}
+
+/* ============================================
+   Theme: DAW — Dark, dense, at home next to Ableton
+   ============================================ */
+[data-theme="daw"] {
+  --text: #a1a1aa;
+  --text-h: #e4e4e7;
+  --text-muted: #71717a;
+  --bg: #18181b;
+  --bg-sidebar: #1e1e22;
+  --bg-hover: #27272a;
+  --border: #2e2e33;
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-bg: rgba(245, 158, 11, 0.1);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+
+/* ============================================
+   Base styles
+   ============================================ */
+:root {
+  --sans: system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, 'SF Mono', monospace;
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 56px;
+  --transition-speed: 0.2s;
+
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+}
+
+#root {
+  height: 100vh;
+}
+
+/* ============================================
+   App Shell
+   ============================================ */
+.app-shell {
+  display: flex;
+  height: 100%;
+}
+
+.app-content {
+  flex: 1;
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+
+/* ============================================
+   Sidebar
+   ============================================ */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  transition: width var(--transition-speed), min-width var(--transition-speed);
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+  min-width: var(--sidebar-collapsed-width);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 20px;
+}
+
+.sidebar-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  opacity: 0;
+  width: 0;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-muted);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text-h);
+  background: var(--bg-hover);
+}
+
+.sidebar-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sidebar-nav li {
+  margin: 0;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: background var(--transition-speed), color var(--transition-speed);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-h);
+}
+
+.nav-link.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.nav-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-label {
+  overflow: hidden;
+  transition: opacity var(--transition-speed);
+}
+
+.sidebar.collapsed .nav-label {
+  opacity: 0;
+  width: 0;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 8px 0;
+  border-left: none;
+}
+
+/* ============================================
+   Theme Switcher
+   ============================================ */
+.theme-switcher {
+  margin-top: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.theme-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.theme-btn {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-speed);
+}
+
+.theme-btn:hover {
+  color: var(--text-h);
+  background: var(--bg-hover);
+}
+
+.theme-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.sidebar.collapsed .theme-switcher {
+  padding: 8px 4px;
+}
+
+.sidebar.collapsed .theme-btn {
+  font-size: 10px;
+  padding: 3px 2px;
+}
+
+/* ============================================
+   Headings
+   ============================================ */
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 16px;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 12px;
+}

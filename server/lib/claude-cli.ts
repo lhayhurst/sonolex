@@ -10,6 +10,12 @@ export interface ClaudeUsage {
 export interface ClaudeResult {
   text: string
   usage: ClaudeUsage
+  sessionId?: string
+}
+
+export interface ClaudeOptions {
+  systemPrompt?: string
+  resumeSessionId?: string
 }
 
 export function stripMarkdownFences(text: string): string {
@@ -18,11 +24,21 @@ export function stripMarkdownFences(text: string): string {
   return match ? match[1] : trimmed
 }
 
-export async function runClaude(prompt: string): Promise<ClaudeResult> {
+export async function runClaude(prompt: string, options?: ClaudeOptions): Promise<ClaudeResult> {
   return new Promise((resolve, reject) => {
+    const args = ['-p', '--output-format', 'json']
+
+    if (options?.resumeSessionId) {
+      args.push('--resume', options.resumeSessionId)
+    }
+
+    if (options?.systemPrompt) {
+      args.push('--append-system-prompt', options.systemPrompt)
+    }
+
     const proc = execFile(
       'claude',
-      ['-p', '--output-format', 'json'],
+      args,
       { maxBuffer: 10 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) {
@@ -38,9 +54,12 @@ export async function runClaude(prompt: string): Promise<ClaudeResult> {
             costUsd: parsed.total_cost_usd ?? 0,
             durationMs: parsed.duration_ms ?? 0,
           }
-          resolve({ text: parsed.result ?? '', usage })
+          resolve({
+            text: parsed.result ?? '',
+            usage,
+            sessionId: parsed.session_id,
+          })
         } catch {
-          // Fallback if JSON parsing fails — treat as plain text
           resolve({
             text: stdout,
             usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, durationMs: 0 },

@@ -16,6 +16,7 @@ vi.mock('./lib/claude-cli', () => ({
       sections: [{ heading: 'Overview', content: 'Test content', level: 1 }],
     }),
     usage: { inputTokens: 100, outputTokens: 50, costUsd: 0.01, durationMs: 5000 },
+    sessionId: 'test-session-123',
   }),
   stripMarkdownFences: vi.fn((t: string) => t),
   isClaudeAvailable: vi.fn().mockResolvedValue(true),
@@ -246,6 +247,64 @@ describe('API routes', () => {
 
       expect(res.status).toBe(200)
       expect(typeof res.body.estimatedMs).toBe('number')
+    })
+  })
+
+  describe('POST /api/chat', () => {
+    it('sends a message and returns response', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ message: 'Hello, help me with my studio' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+      expect(res.body.text).toBeDefined()
+      expect(res.body.usage).toBeDefined()
+    })
+
+    it('returns 400 when no message provided', async () => {
+      const res = await request(app)
+        .post('/api/chat')
+        .send({})
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(400)
+    })
+  })
+
+  describe('GET /api/chat/history', () => {
+    it('returns empty history initially', async () => {
+      const res = await request(app).get('/api/chat/history')
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([])
+    })
+
+    it('returns messages after chatting', async () => {
+      await request(app)
+        .post('/api/chat')
+        .send({ message: 'Hello' })
+        .set('Content-Type', 'application/json')
+
+      const res = await request(app).get('/api/chat/history')
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(2)
+      expect(res.body[0].role).toBe('user')
+      expect(res.body[1].role).toBe('assistant')
+    })
+  })
+
+  describe('DELETE /api/chat/history', () => {
+    it('clears chat history', async () => {
+      await request(app)
+        .post('/api/chat')
+        .send({ message: 'Hello' })
+        .set('Content-Type', 'application/json')
+
+      const delRes = await request(app).delete('/api/chat/history')
+      expect(delRes.status).toBe(204)
+
+      const res = await request(app).get('/api/chat/history')
+      expect(res.body).toEqual([])
     })
   })
 

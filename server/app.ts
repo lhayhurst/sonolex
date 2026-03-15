@@ -9,6 +9,8 @@ import { extractTextFromPdf } from './lib/pdf-extract'
 import { convertToManual } from './lib/manual-converter'
 import { isClaudeAvailable } from './lib/claude-cli'
 import { ConversionHistory } from './lib/conversion-history'
+import { ChatSession } from './lib/chat-session'
+import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './lib/studio-prompt'
 import { createManual } from '../src/types/index'
 import type { StudioData, Manual } from '../src/types/index'
 
@@ -17,6 +19,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 export function createApp(storage: Storage, dataDir?: string) {
   const pdfsDir = dataDir ? join(dataDir, 'pdfs') : undefined
   const history = new ConversionHistory(dataDir ?? '.')
+  let chatSession = new ChatSession(dataDir ?? '.')
   const app = express()
   app.use(cors())
   app.use(express.json())
@@ -154,6 +157,42 @@ export function createApp(storage: Storage, dataDir?: string) {
     const { inputChars } = req.body as { inputChars?: number }
     const estimatedMs = inputChars ? await history.estimateDuration(inputChars) : null
     res.json({ estimatedMs })
+  })
+
+  // Chat
+  app.post('/api/chat', async (req, res) => {
+    const { message } = req.body as { message?: string }
+    if (!message) {
+      res.status(400).json({ error: 'message is required' })
+      return
+    }
+
+    try {
+      const manuals = await storage.listManuals()
+      const systemPrompt = buildSystemPrompt(manuals)
+
+      // Inject relevant manual content if the user mentions a device
+      const relevant = findRelevantManuals(message, manuals)
+      const enrichedMessage = relevant.length > 0
+        ? `${message}\n\n${buildManualContext(relevant)}`
+        : message
+
+      const result = await chatSession.send(enrichedMessage, systemPrompt)
+      res.json({ text: result.text, usage: result.usage })
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Chat failed'
+      res.status(500).json({ error: errMsg })
+    }
+  })
+
+  app.get('/api/chat/history', async (_req, res) => {
+    const messages = await chatSession.getHistory()
+    res.json(messages)
+  })
+
+  app.delete('/api/chat/history', async (_req, res) => {
+    await chatSession.clear()
+    res.status(204).send()
   })
 
   // Config

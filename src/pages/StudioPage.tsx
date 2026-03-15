@@ -71,6 +71,17 @@ export function StudioPage() {
     setMode('view')
   }
 
+  function handleDownload() {
+    if (!content) return
+    const blob = new Blob([content], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'studio.md'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) return null
 
   if (mode === 'edit') {
@@ -130,9 +141,14 @@ export function StudioPage() {
     <div className="studio-page">
       <div className="studio-header">
         <h1>Studio</h1>
-        <button className="studio-btn" onClick={handleEdit} aria-label="Edit studio doc">
-          Edit
-        </button>
+        <div className="studio-actions">
+          <button className="studio-btn" onClick={handleDownload} aria-label="Download studio doc">
+            Download
+          </button>
+          <button className="studio-btn" onClick={handleEdit} aria-label="Edit studio doc">
+            Edit
+          </button>
+        </div>
       </div>
       <div className="studio-doc">
         <Markdown>{content}</Markdown>

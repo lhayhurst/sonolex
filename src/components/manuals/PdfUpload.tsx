@@ -54,12 +54,13 @@ export function PdfUpload({ onUploaded }: PdfUploadProps) {
     const formData = new FormData()
     formData.append('pdf', file)
 
-    // Ask server for an estimate based on file size (rough proxy for text length)
+    // Phase 1: Extract text and get time estimate (fast)
     try {
-      const estRes = await fetch('/api/estimate-conversion', {
+      const extractForm = new FormData()
+      extractForm.append('pdf', file)
+      const estRes = await fetch('/api/extract-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputChars: file.size }),
+        body: extractForm,
       })
       if (estRes.ok) {
         const estData = await estRes.json()
@@ -69,6 +70,7 @@ export function PdfUpload({ onUploaded }: PdfUploadProps) {
       // Estimation is best-effort
     }
 
+    // Phase 2: Full conversion with Claude (slow)
     try {
       const response = await fetch('/api/upload-pdf', {
         method: 'POST',

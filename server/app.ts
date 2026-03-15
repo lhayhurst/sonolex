@@ -85,6 +85,21 @@ export function createApp(storage: Storage, dataDir?: string) {
     }
   })
 
+  // PDF pre-flight: extract text and estimate conversion time
+  app.post('/api/extract-text', upload.single('pdf'), async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'No PDF file uploaded' })
+      return
+    }
+    try {
+      const { text, pageCount } = await extractTextFromPdf(req.file.buffer)
+      const estimatedMs = await history.estimateDuration(text.length)
+      res.json({ inputChars: text.length, pageCount, estimatedMs })
+    } catch (err: unknown) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Text extraction failed' })
+    }
+  })
+
   // PDF Upload
   app.post('/api/upload-pdf', upload.single('pdf'), async (req, res) => {
     if (!req.file) {

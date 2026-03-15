@@ -59,10 +59,12 @@ export interface Manual {
   id: string
   deviceId?: string
   title: string
+  summary?: string
   content: string
   sections?: ManualSection[]
   sourceFileName?: string
   convertedAt?: string
+  pdfPath?: string
 }
 
 export interface StudioMeta {
@@ -127,6 +129,7 @@ export function createManual(params: {
   sections?: ManualSection[]
   sourceFileName?: string
   convertedAt?: string
+  pdfPath?: string
 }): Manual {
   return { ...params }
 }

@@ -5,9 +5,10 @@ A local-first app for music studio documentation. Upload equipment manuals, chat
 ## Quick Start
 
 ```bash
+npm install -g @anthropic-ai/claude-code  # Install Claude Code CLI
+claude                                     # Sign in once
 npm install
-cp .env.example .env  # Add your ANTHROPIC_API_KEY
-npm run dev
+make run
 ```
 
 ## Features
@@ -16,3 +17,7 @@ npm run dev
 - **Manual Browser** — Full-text search across all your equipment manuals
 - **AI-Powered Setup** — Chat with Claude to build your studio map from manuals
 - **Publish** — Export a static read-only site to share your studio setup
+
+## How it works
+
+Sonolex uses the Claude Code CLI (`claude -p`) to process your equipment manuals — no separate API key or billing needed. It uses your existing Claude subscription.

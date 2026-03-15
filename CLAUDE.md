@@ -7,9 +7,9 @@ Sonolex is a local-first app for music studio documentation. Users upload equipm
 ## Stack
 
 - **Frontend**: Vite + React + TypeScript
-- **Backend**: Express (Node.js) for Claude API
+- **Backend**: Express (Node.js)
 - **Storage**: JSON files on disk
-- **Claude API**: `@anthropic-ai/sdk` (server-side only)
+- **Claude integration**: Via `claude` CLI subprocess (uses existing Claude Code auth, no separate API key)
 - **Testing**: Vitest
 
 ## Development Methodology
@@ -39,4 +39,4 @@ Sonolex is a local-first app for music studio documentation. Users upload equipm
 - Server code lives in `server/`
 - Frontend code lives in `src/`
 - JSON data stored in `data/` directory
-- API key in `.env` (never committed)
+- Requires `claude` CLI installed globally (`npm install -g @anthropic-ai/claude-code`)

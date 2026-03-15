@@ -277,3 +277,401 @@ h2 {
   color: var(--text-h);
   margin: 0 0 12px;
 }
+
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 4px;
+}
+
+/* ============================================
+   PDF Upload
+   ============================================ */
+.pdf-upload {
+  margin-bottom: 24px;
+}
+
+.pdf-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  transition: border-color var(--transition-speed), background var(--transition-speed);
+}
+
+.pdf-upload-zone:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.pdf-upload-instructions {
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.pdf-upload-label {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background var(--transition-speed);
+}
+
+.pdf-upload-label:hover {
+  background: var(--accent-hover);
+}
+
+.pdf-upload-input {
+  display: none;
+}
+
+.pdf-upload-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-upload-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.pdf-upload-filename {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+  margin: 0;
+}
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.progress-bar-fill.indeterminate {
+  width: 30% !important;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.pdf-upload-status {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.pdf-upload-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+/* ============================================
+   Manual List & Cards
+   ============================================ */
+.empty-state {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 32px;
+}
+
+.manual-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.manual-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--bg);
+  transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+  cursor: pointer;
+}
+
+.manual-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.manual-card-title {
+  margin: 0 0 4px;
+}
+
+.manual-card-details {
+  flex: 1;
+}
+
+.manual-card-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.manual-card-pdf-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.manual-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.manual-card-delete {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.manual-card-delete:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.manual-card-toggle {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  margin: 4px 0;
+}
+
+.manual-card-toggle:hover {
+  text-decoration: underline;
+}
+
+.manual-card-summary {
+  font-size: 13px;
+  color: var(--text);
+  margin: 4px 0 8px;
+  line-height: 1.5;
+}
+
+.manual-card-actions {
+  margin-top: 8px;
+}
+
+.manual-card-pdf-link:hover {
+  text-decoration: underline;
+}
+
+/* Upload Report */
+.pdf-upload-report {
+  text-align: center;
+}
+
+.pdf-upload-report-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+
+.pdf-upload-report-stats {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   Setup Screen
+   ============================================ */
+.setup-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.setup-card {
+  max-width: 480px;
+  width: 100%;
+  padding: 48px;
+}
+
+.setup-card h1 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.setup-description {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.setup-steps {
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: var(--bg-sidebar);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.setup-steps h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.setup-steps ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.setup-steps a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.setup-steps a:hover {
+  text-decoration: underline;
+}
+
+.setup-steps code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.setup-steps-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0 0;
+}
+
+.setup-field {
+  margin-bottom: 20px;
+}
+
+.setup-field-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+
+.setup-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-h);
+  margin-bottom: 6px;
+}
+
+.setup-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: var(--mono);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  outline: none;
+  transition: border-color var(--transition-speed);
+}
+
+.setup-input:focus {
+  border-color: var(--accent);
+}
+
+.setup-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.setup-help a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.setup-help a:hover {
+  text-decoration: underline;
+}
+
+.setup-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.setup-button {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+
+.setup-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.setup-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

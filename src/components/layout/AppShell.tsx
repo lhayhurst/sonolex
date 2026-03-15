@@ -1,6 +1,7 @@
 import { useState, createContext, useContext } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { StatusBar } from './StatusBar'
 import { useTheme } from '../../hooks/useTheme'
 import { useUploadState, type UploadState } from '../../hooks/useUpload'
 import type { Manual } from '../../types/index'
@@ -47,11 +48,13 @@ export function AppShell() {
             onToggleCollapse={() => setCollapsed(c => !c)}
             theme={theme}
             onThemeChange={setTheme}
-            upload={upload}
           />
-          <main className="app-content">
-            <Outlet />
-          </main>
+          <div className="app-main">
+            <main className="app-content">
+              <Outlet />
+            </main>
+            <StatusBar upload={upload} />
+          </div>
         </div>
       </ManualCallbackContext.Provider>
     </UploadContext.Provider>

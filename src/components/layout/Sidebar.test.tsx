@@ -2,25 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import type { UploadState } from '../../hooks/useUpload'
 
-const idleUpload: UploadState = {
-  status: 'idle', fileName: '', elapsed: 0, estimatedMs: null,
-  usage: null, error: '', startUpload: () => {}, dismiss: () => {},
-}
-
-const activeUpload: UploadState = {
-  status: 'uploading', fileName: 'my-synth.pdf', elapsed: 12, estimatedMs: 60000,
-  usage: null, error: '', startUpload: () => {}, dismiss: () => {},
-}
-
-const doneUpload: UploadState = {
-  status: 'done', fileName: 'my-synth.pdf', elapsed: 30, estimatedMs: null,
-  usage: { inputTokens: 1000, outputTokens: 500, costUsd: 0.02, durationMs: 30000 },
-  error: '', startUpload: () => {}, dismiss: vi.fn(),
-}
-
-function renderSidebar(initialRoute = '/studio', upload: UploadState = idleUpload) {
+function renderSidebar(initialRoute = '/studio') {
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
       <Sidebar
@@ -28,7 +11,6 @@ function renderSidebar(initialRoute = '/studio', upload: UploadState = idleUploa
         onToggleCollapse={() => {}}
         theme="clean"
         onThemeChange={() => {}}
-        upload={upload}
       />
     </MemoryRouter>
   )
@@ -63,7 +45,7 @@ describe('Sidebar', () => {
     const onToggle = vi.fn()
     render(
       <MemoryRouter>
-        <Sidebar collapsed={false} onToggleCollapse={onToggle} theme="clean" onThemeChange={() => {}} upload={idleUpload} />
+        <Sidebar collapsed={false} onToggleCollapse={onToggle} theme="clean" onThemeChange={() => {}} />
       </MemoryRouter>
     )
     fireEvent.click(screen.getByRole('button', { name: /collapse/i }))
@@ -73,7 +55,7 @@ describe('Sidebar', () => {
   it('adds collapsed class when collapsed', () => {
     const { container } = render(
       <MemoryRouter>
-        <Sidebar collapsed={true} onToggleCollapse={() => {}} theme="clean" onThemeChange={() => {}} upload={idleUpload} />
+        <Sidebar collapsed={true} onToggleCollapse={() => {}} theme="clean" onThemeChange={() => {}} />
       </MemoryRouter>
     )
     expect(container.querySelector('.sidebar.collapsed')).toBeInTheDocument()
@@ -89,7 +71,7 @@ describe('Sidebar', () => {
   it('marks active theme button', () => {
     render(
       <MemoryRouter>
-        <Sidebar collapsed={false} onToggleCollapse={() => {}} theme="daw" onThemeChange={() => {}} upload={idleUpload} />
+        <Sidebar collapsed={false} onToggleCollapse={() => {}} theme="daw" onThemeChange={() => {}} />
       </MemoryRouter>
     )
     expect(screen.getByRole('button', { name: /daw/i }).className).toContain('active')
@@ -99,30 +81,10 @@ describe('Sidebar', () => {
     const onThemeChange = vi.fn()
     render(
       <MemoryRouter>
-        <Sidebar collapsed={false} onToggleCollapse={() => {}} theme="clean" onThemeChange={onThemeChange} upload={idleUpload} />
+        <Sidebar collapsed={false} onToggleCollapse={() => {}} theme="clean" onThemeChange={onThemeChange} />
       </MemoryRouter>
     )
     fireEvent.click(screen.getByRole('button', { name: /warm/i }))
     expect(onThemeChange).toHaveBeenCalledWith('warm')
-  })
-
-  it('shows no upload indicator when idle', () => {
-    renderSidebar('/studio', idleUpload)
-    expect(screen.queryByText(/my-synth/i)).not.toBeInTheDocument()
-  })
-
-  it('shows upload indicator with filename during upload', () => {
-    renderSidebar('/studio', activeUpload)
-    expect(screen.getByText(/my-synth\.pdf/i)).toBeInTheDocument()
-  })
-
-  it('shows progress bar during upload', () => {
-    const { container } = renderSidebar('/studio', activeUpload)
-    expect(container.querySelector('.progress-bar')).toBeInTheDocument()
-  })
-
-  it('shows completion indicator when done', () => {
-    renderSidebar('/studio', doneUpload)
-    expect(screen.getByText(/complete/i)).toBeInTheDocument()
   })
 })

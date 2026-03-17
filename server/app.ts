@@ -186,7 +186,7 @@ export function createApp(storage: Storage, dataDir?: string) {
       // If user wants to update the studio, include the current doc and instructions
       const wantsStudioUpdate = /\b(update|add|change|modify|integrate|include|remove)\b.*\bstudio\b|\bstudio\b.*\b(update|add|change|modify|integrate|include|remove)\b/i.test(message)
       if (wantsStudioUpdate && currentStudioDoc) {
-        enrichedMessage += `\n\n--- Current Studio Document ---\n\n${currentStudioDoc}\n\n--- Instructions ---\nPlease update the studio document based on the user's request. Return the COMPLETE updated document wrapped in a \`\`\`studio-update code fence. The document should be comprehensive markdown.`
+        enrichedMessage += `\n\n--- Current Studio Document ---\n\n${currentStudioDoc}\n\n--- Instructions ---\nPlease update the studio document based on the user's request. IMPORTANT: Do NOT use any tools or try to edit files. Instead, return the COMPLETE updated document in your response text, wrapped in a \`\`\`studio-update code fence. The document should be comprehensive markdown. Example format:\n\n\`\`\`studio-update\n# My Studio\n...updated content...\n\`\`\``
       }
 
       const result = await chatSession.send(enrichedMessage, systemPrompt, message)

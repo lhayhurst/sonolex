@@ -16,6 +16,7 @@ export interface ClaudeResult {
 export interface ClaudeOptions {
   systemPrompt?: string
   resumeSessionId?: string
+  disableTools?: boolean
 }
 
 export function stripMarkdownFences(text: string): string {
@@ -27,6 +28,10 @@ export function stripMarkdownFences(text: string): string {
 export async function runClaude(prompt: string, options?: ClaudeOptions): Promise<ClaudeResult> {
   return new Promise((resolve, reject) => {
     const args = ['-p', '--output-format', 'json']
+
+    if (options?.disableTools) {
+      args.push('--tools', '')
+    }
 
     if (options?.resumeSessionId) {
       args.push('--resume', options.resumeSessionId)

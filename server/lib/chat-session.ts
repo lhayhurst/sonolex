@@ -34,6 +34,7 @@ export class ChatSession {
     const result = await runClaude(claudeMessage, {
       systemPrompt: !this.sessionId ? systemPrompt : undefined,
       resumeSessionId: this.sessionId,
+      disableTools: true,
     })
 
     if (result.sessionId) {

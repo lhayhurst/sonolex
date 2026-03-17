@@ -17,6 +17,8 @@ export interface ClaudeOptions {
   systemPrompt?: string
   resumeSessionId?: string
   disableTools?: boolean
+  allowedTools?: string[]
+  addDirs?: string[]
 }
 
 export function stripMarkdownFences(text: string): string {
@@ -31,6 +33,16 @@ export async function runClaude(prompt: string, options?: ClaudeOptions): Promis
 
     if (options?.disableTools) {
       args.push('--tools', '')
+    }
+
+    if (options?.allowedTools?.length) {
+      args.push('--allowedTools', ...options.allowedTools)
+    }
+
+    if (options?.addDirs?.length) {
+      for (const dir of options.addDirs) {
+        args.push('--add-dir', dir)
+      }
     }
 
     if (options?.resumeSessionId) {

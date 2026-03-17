@@ -3,7 +3,7 @@ import cors from 'cors'
 import multer from 'multer'
 import crypto from 'node:crypto'
 import { writeFile, readFile, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { Storage } from './lib/storage'
 import { extractTextFromPdf } from './lib/pdf-extract'
 import { convertToManual } from './lib/manual-converter'
@@ -18,6 +18,7 @@ import type { StudioData, Manual } from '../src/types/index'
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
 
 export function createApp(storage: Storage, dataDir?: string) {
+  const resolvedDataDir = resolve(dataDir ?? '.')
   const pdfsDir = dataDir ? join(dataDir, 'pdfs') : undefined
   const history = new ConversionHistory(dataDir ?? '.')
   let chatSession = new ChatSession(dataDir ?? '.')
@@ -183,21 +184,26 @@ export function createApp(storage: Storage, dataDir?: string) {
         enrichedMessage += '\n\n' + buildManualContext(relevant)
       }
 
-      // If user wants to update the studio, include the current doc and instructions
+      // If user wants to update the studio, tell Claude to edit the file directly
       const wantsStudioUpdate = /\b(update|add|change|modify|integrate|include|remove)\b.*\bstudio\b|\bstudio\b.*\b(update|add|change|modify|integrate|include|remove)\b/i.test(message)
-      if (wantsStudioUpdate && currentStudioDoc) {
-        enrichedMessage += `\n\n--- Current Studio Document ---\n\n${currentStudioDoc}\n\n--- Instructions ---\nPlease update the studio document based on the user's request. IMPORTANT: Do NOT use any tools or try to edit files. Instead, return the COMPLETE updated document in your response text, wrapped in a \`\`\`studio-update code fence. The document should be comprehensive markdown. Example format:\n\n\`\`\`studio-update\n# My Studio\n...updated content...\n\`\`\``
+      const studioFilePath = join(resolvedDataDir, 'studio.md')
+      if (wantsStudioUpdate) {
+        enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nRead it, then use the Edit or Write tool to update it directly. Do NOT output the full document in your response — just describe what you changed.`
       }
 
-      const result = await chatSession.send(enrichedMessage, systemPrompt, message)
-
-      // Check if Claude returned a studio update
-      const studioUpdateMatch = result.text.match(/```studio-update\n([\s\S]*?)\n```/)
-      if (studioUpdateMatch) {
-        await studioDoc.save(studioUpdateMatch[1])
+      // Allow file tools scoped to the data directory (for studio updates)
+      // Tools are always enabled with the same config so session resume works consistently
+      const chatOptions = {
+        allowedTools: ['Read', 'Edit', 'Write'],
+        addDirs: [resolvedDataDir],
       }
 
-      res.json({ text: result.text, usage: result.usage, studioUpdated: !!studioUpdateMatch })
+      const result = await chatSession.send(enrichedMessage, systemPrompt, message, chatOptions)
+
+      // Check if the studio doc was modified by comparing content
+      const studioUpdated = wantsStudioUpdate && (await studioDoc.load()) !== currentStudioDoc
+
+      res.json({ text: result.text, usage: result.usage, studioUpdated })
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Chat failed'
       res.status(500).json({ error: errMsg })

@@ -1,6 +1,6 @@
 import { readFile, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { runClaude, type ClaudeResult } from './claude-cli'
+import { runClaude, type ClaudeResult, type ClaudeOptions } from './claude-cli'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -30,11 +30,12 @@ export class ChatSession {
     claudeMessage: string,
     systemPrompt: string,
     displayMessage?: string,
+    extraOptions?: Partial<ClaudeOptions>,
   ): Promise<ClaudeResult> {
     const result = await runClaude(claudeMessage, {
       systemPrompt: !this.sessionId ? systemPrompt : undefined,
       resumeSessionId: this.sessionId,
-      disableTools: true,
+      ...extraOptions,
     })
 
     if (result.sessionId) {

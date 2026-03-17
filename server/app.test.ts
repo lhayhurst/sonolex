@@ -273,17 +273,15 @@ describe('API routes', () => {
   })
 
   describe('POST /api/chat with studio update', () => {
-    it('includes current studio doc in context when user asks to update', async () => {
-      // Set up a studio doc
+    it('enables file tools and passes studio file path when user asks to update studio', async () => {
       await request(app)
         .put('/api/studio-doc')
         .send({ content: '# My Studio\n\nOld content.' })
         .set('Content-Type', 'application/json')
 
-      // Mock runClaude to return a response with STUDIO_UPDATE marker
       const { runClaude: mockRun } = await import('./lib/claude-cli')
       vi.mocked(mockRun).mockResolvedValueOnce({
-        text: 'I\'ve updated your studio doc.\n\n```studio-update\n# My Studio\n\nUpdated content with Monolit.\n```',
+        text: 'I\'ve updated your studio doc with the Monolit.',
         usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
         sessionId: 'test-session-456',
       })
@@ -295,9 +293,105 @@ describe('API routes', () => {
 
       expect(res.status).toBe(200)
 
-      // Verify the studio doc was updated
-      const docRes = await request(app).get('/api/studio-doc')
-      expect(docRes.body.content).toContain('Updated content with Monolit')
+      // Verify Claude was called with file tools enabled and the studio file path
+      expect(vi.mocked(mockRun)).toHaveBeenCalledWith(
+        expect.stringContaining('studio.md'),
+        expect.objectContaining({
+          allowedTools: ['Read', 'Edit', 'Write'],
+        }),
+      )
+
+      // Verify tools were NOT disabled
+      const calledOptions = vi.mocked(mockRun).mock.calls[0][1]
+      expect(calledOptions).not.toHaveProperty('disableTools')
+    })
+
+    it('passes data directory via addDirs so Claude can access the studio file', async () => {
+      const { runClaude: mockRun } = await import('./lib/claude-cli')
+      vi.mocked(mockRun).mockResolvedValueOnce({
+        text: 'Created your studio doc.',
+        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
+        sessionId: 'test-session-789',
+      })
+
+      await request(app)
+        .post('/api/chat')
+        .send({ message: 'Please update my studio guide with the Drop' })
+        .set('Content-Type', 'application/json')
+
+      const calledOptions = vi.mocked(mockRun).mock.calls[0][1]
+      expect(calledOptions?.addDirs).toBeDefined()
+      expect(calledOptions!.addDirs!.length).toBe(1)
+    })
+
+    it('uses consistent tool config for non-studio-update messages', async () => {
+      const { runClaude: mockRun } = await import('./lib/claude-cli')
+      vi.mocked(mockRun).mockResolvedValueOnce({
+        text: 'The Monolit has 4 oscillators.',
+        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
+        sessionId: 'test-session-101',
+      })
+
+      await request(app)
+        .post('/api/chat')
+        .send({ message: 'Tell me about the Monolit' })
+        .set('Content-Type', 'application/json')
+
+      // Same tool config as studio updates so session resume works consistently
+      const calledOptions = vi.mocked(mockRun).mock.calls[0][1]
+      expect(calledOptions?.allowedTools).toEqual(['Read', 'Edit', 'Write'])
+    })
+
+    it('detects studioUpdated when Claude modifies the file', async () => {
+      // Set up initial studio doc
+      await request(app)
+        .put('/api/studio-doc')
+        .send({ content: '# My Studio\n\nOld content.' })
+        .set('Content-Type', 'application/json')
+
+      const { runClaude: mockRun } = await import('./lib/claude-cli')
+      // Simulate Claude editing the file by modifying it before resolving
+      vi.mocked(mockRun).mockImplementationOnce(async () => {
+        // Simulate what Claude does: write to the studio file
+        await request(app)
+          .put('/api/studio-doc')
+          .send({ content: '# My Studio\n\nUpdated content with Monolit.' })
+          .set('Content-Type', 'application/json')
+
+        return {
+          text: 'I\'ve added the Monolit to your studio doc.',
+          usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
+          sessionId: 'test-session-456',
+        }
+      })
+
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ message: 'Please update my studio to include the Monolit' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+      expect(res.body.studioUpdated).toBe(true)
+      // Claude's response should just be conversational
+      expect(res.body.text).toBe('I\'ve added the Monolit to your studio doc.')
+    })
+
+    it('does not output studio document content in chat response', async () => {
+      const { runClaude: mockRun } = await import('./lib/claude-cli')
+      vi.mocked(mockRun).mockResolvedValueOnce({
+        text: 'Done! I\'ve updated the studio guide with the Drop and Move devices.',
+        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
+        sessionId: 'test-session-456',
+      })
+
+      const res = await request(app)
+        .post('/api/chat')
+        .send({ message: 'Please update my studio to include the Drop' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+      // Response should be short and conversational, not contain a full document
+      expect(res.body.text.length).toBeLessThan(500)
     })
   })
 

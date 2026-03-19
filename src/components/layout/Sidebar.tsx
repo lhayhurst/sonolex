@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { NavLink, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { THEMES, type ThemeName } from '../../hooks/useTheme'
 import type { ChatSessionInfo } from '../../types/index'
 
@@ -18,7 +18,9 @@ const navItems = [
 
 export function Sidebar({ collapsed, onToggleCollapse, theme, onThemeChange }: SidebarProps) {
   const navigate = useNavigate()
-  const { sessionId: activeSessionId } = useParams<{ sessionId: string }>()
+  const location = useLocation()
+  const chatMatch = location.pathname.match(/^\/chat\/(.+)/)
+  const activeSessionId = chatMatch?.[1]
   const [sessions, setSessions] = useState<ChatSessionInfo[]>([])
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)

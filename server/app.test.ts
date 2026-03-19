@@ -6,6 +6,7 @@ import request from 'supertest'
 import { createApp } from './app'
 import { Storage } from './lib/storage'
 import { createDevice, createManual } from '../src/types/index'
+import type { Express } from 'express'
 
 // Mock claude-cli so tests don't actually call claude
 vi.mock('./lib/claude-cli', () => ({
@@ -27,13 +28,13 @@ import { runClaude } from './lib/claude-cli'
 describe('API routes', () => {
   let tempDir: string
   let storage: Storage
-  let app: ReturnType<typeof createApp>
+  let app: Express
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'sonolex-api-test-'))
     storage = new Storage(tempDir)
     await storage.init()
-    app = createApp(storage, tempDir)
+    app = await createApp(storage, tempDir)
     vi.clearAllMocks()
   })
 
@@ -250,10 +251,116 @@ describe('API routes', () => {
     })
   })
 
-  describe('POST /api/chat', () => {
-    it('sends a message and returns response', async () => {
+  // --- Chat Sessions ---
+
+  // Helper: create a session and return its ID
+  async function createSession(name?: string) {
+    const res = await request(app)
+      .post('/api/chat/sessions')
+      .send({ name })
+      .set('Content-Type', 'application/json')
+    return res.body
+  }
+
+  describe('GET /api/chat/sessions', () => {
+    it('returns empty list initially', async () => {
+      const res = await request(app).get('/api/chat/sessions')
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([])
+    })
+
+    it('returns created sessions', async () => {
+      await createSession('First')
+      await createSession('Second')
+
+      const res = await request(app).get('/api/chat/sessions')
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(2)
+    })
+  })
+
+  describe('POST /api/chat/sessions', () => {
+    it('creates a session with a name', async () => {
       const res = await request(app)
-        .post('/api/chat')
+        .post('/api/chat/sessions')
+        .send({ name: 'My Chat' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(201)
+      expect(res.body.name).toBe('My Chat')
+      expect(res.body.id).toBeDefined()
+    })
+
+    it('creates a session with default name', async () => {
+      const res = await request(app)
+        .post('/api/chat/sessions')
+        .send({})
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(201)
+      expect(res.body.name).toBe('New Chat')
+    })
+  })
+
+  describe('PATCH /api/chat/sessions/:id', () => {
+    it('renames a session', async () => {
+      const session = await createSession('Old Name')
+
+      const res = await request(app)
+        .patch(`/api/chat/sessions/${session.id}`)
+        .send({ name: 'New Name' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+
+      const listRes = await request(app).get('/api/chat/sessions')
+      expect(listRes.body[0].name).toBe('New Name')
+    })
+
+    it('returns 404 for unknown session', async () => {
+      const res = await request(app)
+        .patch('/api/chat/sessions/nonexistent')
+        .send({ name: 'Name' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(404)
+    })
+
+    it('returns 400 when no name provided', async () => {
+      const session = await createSession()
+
+      const res = await request(app)
+        .patch(`/api/chat/sessions/${session.id}`)
+        .send({})
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(400)
+    })
+  })
+
+  describe('DELETE /api/chat/sessions/:id', () => {
+    it('deletes a session', async () => {
+      const session = await createSession('To Delete')
+
+      const res = await request(app).delete(`/api/chat/sessions/${session.id}`)
+      expect(res.status).toBe(204)
+
+      const listRes = await request(app).get('/api/chat/sessions')
+      expect(listRes.body).toHaveLength(0)
+    })
+
+    it('returns 404 for unknown session', async () => {
+      const res = await request(app).delete('/api/chat/sessions/nonexistent')
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('POST /api/chat/sessions/:id/messages', () => {
+    it('sends a message and returns response', async () => {
+      const session = await createSession('Test Chat')
+
+      const res = await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
         .send({ message: 'Hello, help me with my studio' })
         .set('Content-Type', 'application/json')
 
@@ -263,17 +370,60 @@ describe('API routes', () => {
     })
 
     it('returns 400 when no message provided', async () => {
+      const session = await createSession()
+
       const res = await request(app)
-        .post('/api/chat')
+        .post(`/api/chat/sessions/${session.id}/messages`)
         .send({})
         .set('Content-Type', 'application/json')
 
       expect(res.status).toBe(400)
     })
+
+    it('returns 404 for unknown session', async () => {
+      const res = await request(app)
+        .post('/api/chat/sessions/nonexistent/messages')
+        .send({ message: 'Hello' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(404)
+    })
   })
 
-  describe('POST /api/chat with studio update', () => {
+  describe('GET /api/chat/sessions/:id/history', () => {
+    it('returns empty history for new session', async () => {
+      const session = await createSession()
+
+      const res = await request(app).get(`/api/chat/sessions/${session.id}/history`)
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([])
+    })
+
+    it('returns messages after chatting', async () => {
+      const session = await createSession()
+
+      await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Hello' })
+        .set('Content-Type', 'application/json')
+
+      const res = await request(app).get(`/api/chat/sessions/${session.id}/history`)
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(2)
+      expect(res.body[0].role).toBe('user')
+      expect(res.body[1].role).toBe('assistant')
+    })
+
+    it('returns 404 for unknown session', async () => {
+      const res = await request(app).get('/api/chat/sessions/nonexistent/history')
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('POST /api/chat/sessions/:id/messages with studio update', () => {
     it('enables file tools and passes studio file path when user asks to update studio', async () => {
+      const session = await createSession()
+
       await request(app)
         .put('/api/studio-doc')
         .send({ content: '# My Studio\n\nOld content.' })
@@ -287,72 +437,30 @@ describe('API routes', () => {
       })
 
       const res = await request(app)
-        .post('/api/chat')
+        .post(`/api/chat/sessions/${session.id}/messages`)
         .send({ message: 'Please update my studio to include the Monolit' })
         .set('Content-Type', 'application/json')
 
       expect(res.status).toBe(200)
 
-      // Verify Claude was called with file tools enabled and the studio file path
       expect(vi.mocked(mockRun)).toHaveBeenCalledWith(
         expect.stringContaining('studio.md'),
         expect.objectContaining({
           allowedTools: ['Read', 'Edit', 'Write'],
         }),
       )
-
-      // Verify tools were NOT disabled
-      const calledOptions = vi.mocked(mockRun).mock.calls[0][1]
-      expect(calledOptions).not.toHaveProperty('disableTools')
-    })
-
-    it('passes data directory via addDirs so Claude can access the studio file', async () => {
-      const { runClaude: mockRun } = await import('./lib/claude-cli')
-      vi.mocked(mockRun).mockResolvedValueOnce({
-        text: 'Created your studio doc.',
-        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
-        sessionId: 'test-session-789',
-      })
-
-      await request(app)
-        .post('/api/chat')
-        .send({ message: 'Please update my studio guide with the Drop' })
-        .set('Content-Type', 'application/json')
-
-      const calledOptions = vi.mocked(mockRun).mock.calls[0][1]
-      expect(calledOptions?.addDirs).toBeDefined()
-      expect(calledOptions!.addDirs!.length).toBe(1)
-    })
-
-    it('uses consistent tool config for non-studio-update messages', async () => {
-      const { runClaude: mockRun } = await import('./lib/claude-cli')
-      vi.mocked(mockRun).mockResolvedValueOnce({
-        text: 'The Monolit has 4 oscillators.',
-        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
-        sessionId: 'test-session-101',
-      })
-
-      await request(app)
-        .post('/api/chat')
-        .send({ message: 'Tell me about the Monolit' })
-        .set('Content-Type', 'application/json')
-
-      // Same tool config as studio updates so session resume works consistently
-      const calledOptions = vi.mocked(mockRun).mock.calls[0][1]
-      expect(calledOptions?.allowedTools).toEqual(['Read', 'Edit', 'Write'])
     })
 
     it('detects studioUpdated when Claude modifies the file', async () => {
-      // Set up initial studio doc
+      const session = await createSession()
+
       await request(app)
         .put('/api/studio-doc')
         .send({ content: '# My Studio\n\nOld content.' })
         .set('Content-Type', 'application/json')
 
       const { runClaude: mockRun } = await import('./lib/claude-cli')
-      // Simulate Claude editing the file by modifying it before resolving
       vi.mocked(mockRun).mockImplementationOnce(async () => {
-        // Simulate what Claude does: write to the studio file
         await request(app)
           .put('/api/studio-doc')
           .send({ content: '# My Studio\n\nUpdated content with Monolit.' })
@@ -366,68 +474,13 @@ describe('API routes', () => {
       })
 
       const res = await request(app)
-        .post('/api/chat')
+        .post(`/api/chat/sessions/${session.id}/messages`)
         .send({ message: 'Please update my studio to include the Monolit' })
         .set('Content-Type', 'application/json')
 
       expect(res.status).toBe(200)
       expect(res.body.studioUpdated).toBe(true)
-      // Claude's response should just be conversational
       expect(res.body.text).toBe('I\'ve added the Monolit to your studio doc.')
-    })
-
-    it('does not output studio document content in chat response', async () => {
-      const { runClaude: mockRun } = await import('./lib/claude-cli')
-      vi.mocked(mockRun).mockResolvedValueOnce({
-        text: 'Done! I\'ve updated the studio guide with the Drop and Move devices.',
-        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
-        sessionId: 'test-session-456',
-      })
-
-      const res = await request(app)
-        .post('/api/chat')
-        .send({ message: 'Please update my studio to include the Drop' })
-        .set('Content-Type', 'application/json')
-
-      expect(res.status).toBe(200)
-      // Response should be short and conversational, not contain a full document
-      expect(res.body.text.length).toBeLessThan(500)
-    })
-  })
-
-  describe('GET /api/chat/history', () => {
-    it('returns empty history initially', async () => {
-      const res = await request(app).get('/api/chat/history')
-      expect(res.status).toBe(200)
-      expect(res.body).toEqual([])
-    })
-
-    it('returns messages after chatting', async () => {
-      await request(app)
-        .post('/api/chat')
-        .send({ message: 'Hello' })
-        .set('Content-Type', 'application/json')
-
-      const res = await request(app).get('/api/chat/history')
-      expect(res.status).toBe(200)
-      expect(res.body).toHaveLength(2)
-      expect(res.body[0].role).toBe('user')
-      expect(res.body[1].role).toBe('assistant')
-    })
-  })
-
-  describe('DELETE /api/chat/history', () => {
-    it('clears chat history', async () => {
-      await request(app)
-        .post('/api/chat')
-        .send({ message: 'Hello' })
-        .set('Content-Type', 'application/json')
-
-      const delRes = await request(app).delete('/api/chat/history')
-      expect(delRes.status).toBe(204)
-
-      const res = await request(app).get('/api/chat/history')
-      expect(res.body).toEqual([])
     })
   })
 

@@ -9,7 +9,7 @@ import { extractTextFromPdf } from './lib/pdf-extract'
 import { convertToManual } from './lib/manual-converter'
 import { isClaudeAvailable } from './lib/claude-cli'
 import { ConversionHistory } from './lib/conversion-history'
-import { ChatSession } from './lib/chat-session'
+import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './lib/studio-prompt'
 import { createManual } from '../src/types/index'
@@ -17,11 +17,12 @@ import type { StudioData, Manual } from '../src/types/index'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
 
-export function createApp(storage: Storage, dataDir?: string) {
+export async function createApp(storage: Storage, dataDir?: string) {
   const resolvedDataDir = resolve(dataDir ?? '.')
   const pdfsDir = dataDir ? join(dataDir, 'pdfs') : undefined
   const history = new ConversionHistory(dataDir ?? '.')
-  let chatSession = new ChatSession(dataDir ?? '.')
+  const sessionManager = new ChatSessionManager(dataDir ?? '.')
+  await sessionManager.init()
   const studioDoc = new StudioDoc(dataDir ?? '.')
   const app = express()
   app.use(cors())
@@ -162,11 +163,62 @@ export function createApp(storage: Storage, dataDir?: string) {
     res.json({ estimatedMs })
   })
 
-  // Chat
-  app.post('/api/chat', async (req, res) => {
+  // --- Chat Sessions ---
+
+  app.get('/api/chat/sessions', async (_req, res) => {
+    const sessions = await sessionManager.listSessions()
+    res.json(sessions)
+  })
+
+  app.post('/api/chat/sessions', async (req, res) => {
+    const { name } = req.body as { name?: string }
+    const session = await sessionManager.createSession(name)
+    res.status(201).json(session)
+  })
+
+  app.patch('/api/chat/sessions/:id', async (req, res) => {
+    const { name } = req.body as { name?: string }
+    if (!name) {
+      res.status(400).json({ error: 'name is required' })
+      return
+    }
+    const ok = await sessionManager.renameSession(req.params.id, name)
+    if (!ok) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    res.json({ ok: true })
+  })
+
+  app.delete('/api/chat/sessions/:id', async (req, res) => {
+    const ok = await sessionManager.deleteSession(req.params.id)
+    if (!ok) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    res.status(204).send()
+  })
+
+  app.get('/api/chat/sessions/:id/history', async (req, res) => {
+    const session = sessionManager.getSession(req.params.id)
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    const messages = await session.getHistory()
+    res.json(messages)
+  })
+
+  app.post('/api/chat/sessions/:id/messages', async (req, res) => {
     const { message } = req.body as { message?: string }
     if (!message) {
       res.status(400).json({ error: 'message is required' })
+      return
+    }
+
+    const chatSession = sessionManager.getSession(req.params.id)
+    if (!chatSession) {
+      res.status(404).json({ error: 'Session not found' })
       return
     }
 
@@ -200,6 +252,9 @@ export function createApp(storage: Storage, dataDir?: string) {
 
       const result = await chatSession.send(enrichedMessage, systemPrompt, message, chatOptions)
 
+      // Update the session's last message timestamp
+      await sessionManager.updateLastMessageAt(req.params.id)
+
       // Check if the studio doc was modified by comparing content
       const studioUpdated = wantsStudioUpdate && (await studioDoc.load()) !== currentStudioDoc
 
@@ -208,16 +263,6 @@ export function createApp(storage: Storage, dataDir?: string) {
       const errMsg = err instanceof Error ? err.message : 'Chat failed'
       res.status(500).json({ error: errMsg })
     }
-  })
-
-  app.get('/api/chat/history', async (_req, res) => {
-    const messages = await chatSession.getHistory()
-    res.json(messages)
-  })
-
-  app.delete('/api/chat/history', async (_req, res) => {
-    await chatSession.clear()
-    res.status(204).send()
   })
 
   // Studio doc

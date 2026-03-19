@@ -67,6 +67,13 @@ export interface Manual {
   pdfPath?: string
 }
 
+export interface ChatSessionInfo {
+  id: string
+  name: string
+  createdAt: string
+  lastMessageAt: string | null
+}
+
 export interface StudioMeta {
   name: string
   lastModified: string

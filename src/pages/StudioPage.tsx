@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 type ViewMode = 'view' | 'edit'
 
@@ -151,7 +152,7 @@ export function StudioPage() {
         </div>
       </div>
       <div className="studio-doc">
-        <Markdown>{content}</Markdown>
+        <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
       </div>
     </div>
   )

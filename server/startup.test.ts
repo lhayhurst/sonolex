@@ -32,7 +32,7 @@ describe('server startup', () => {
     try {
       const storage = new Storage(tempDir)
       await storage.init()
-      const app = createApp(storage)
+      const app = await createApp(storage)
 
       const res = await request(app).get('/api/studio')
       expect(res.status).toBe(200)

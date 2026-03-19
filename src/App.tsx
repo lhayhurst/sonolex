@@ -40,6 +40,7 @@ function App() {
         <Route path="/" element={<Navigate to="/manuals" replace />} />
         <Route path="/manuals" element={<ManualsPage />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/chat/:sessionId" element={<ChatPage />} />
         <Route path="/studio" element={<StudioPage />} />
         <Route path="/about" element={<AboutPage />} />
       </Route>

@@ -17,7 +17,7 @@ describe('ChatSession', () => {
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'sonolex-chat-'))
-    session = new ChatSession(tempDir)
+    session = new ChatSession(join(tempDir, 'chat-history.json'))
     vi.clearAllMocks()
   })
 
@@ -95,7 +95,7 @@ describe('ChatSession', () => {
 
     await session.send('Persist this', 'system')
 
-    const session2 = new ChatSession(tempDir)
+    const session2 = new ChatSession(join(tempDir, 'chat-history.json'))
     const history = await session2.getHistory()
     expect(history).toHaveLength(2)
     expect(history[0].content).toBe('Persist this')

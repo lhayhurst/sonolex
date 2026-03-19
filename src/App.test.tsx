@@ -58,12 +58,12 @@ describe('App', () => {
       })
     })
 
-    it('shows navigation links (Manuals, Chat, Studio)', async () => {
+    it('shows navigation links (Manuals, Studio) and New Chat button', async () => {
       renderApp()
       await waitFor(() => {
         expect(screen.getByRole('link', { name: /manuals/i })).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: /chat/i })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: /studio/i })).toBeInTheDocument()
+        expect(screen.getByText(/new chat/i)).toBeInTheDocument()
       })
     })
 

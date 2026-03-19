@@ -17,7 +17,7 @@ async function main() {
     console.warn('Claude CLI not found — install with: npm install -g @anthropic-ai/claude-code')
   }
 
-  const app = createApp(storage, DATA_DIR)
+  const app = await createApp(storage, DATA_DIR)
 
   app.listen(PORT, () => {
     console.log(`Sonolex server running at http://localhost:${PORT}`)

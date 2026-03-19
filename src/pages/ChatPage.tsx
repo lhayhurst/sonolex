@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -7,14 +9,31 @@ interface ChatMessage {
 }
 
 export function ChatPage() {
+  const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // If no sessionId, create a new session and redirect
+  useEffect(() => {
+    if (!sessionId) {
+      fetch('/api/chat/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+        .then(res => res.json())
+        .then(data => navigate(`/chat/${data.id}`, { replace: true }))
+        .catch(() => {})
+    }
+  }, [sessionId, navigate])
+
   const loadHistory = useCallback(async () => {
+    if (!sessionId) return
     try {
-      const res = await fetch('/api/chat/history')
+      const res = await fetch(`/api/chat/sessions/${sessionId}/history`)
       if (res.ok) {
         const data = await res.json()
         setMessages(data)
@@ -22,9 +41,10 @@ export function ChatPage() {
     } catch {
       // Ignore
     }
-  }, [])
+  }, [sessionId])
 
   useEffect(() => {
+    setMessages([])
     loadHistory()
   }, [loadHistory])
 
@@ -33,7 +53,7 @@ export function ChatPage() {
   }, [messages])
 
   async function handleSend() {
-    if (!input.trim() || sending) return
+    if (!input.trim() || sending || !sessionId) return
 
     const userMessage = input.trim()
     setInput('')
@@ -42,7 +62,7 @@ export function ChatPage() {
     setMessages(prev => [...prev, { role: 'user', content: userMessage }])
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage }),
@@ -62,11 +82,6 @@ export function ChatPage() {
     }
   }
 
-  async function handleClear() {
-    await fetch('/api/chat/history', { method: 'DELETE' })
-    setMessages([])
-  }
-
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -74,15 +89,10 @@ export function ChatPage() {
     }
   }
 
+  if (!sessionId) return null
+
   return (
     <div className="chat-page">
-      <div className="chat-header">
-        <h1>Chat</h1>
-        <button className="chat-clear" onClick={handleClear} aria-label="Clear chat">
-          Clear
-        </button>
-      </div>
-
       <div className="chat-messages">
         {messages.length === 0 && (
           <p className="chat-empty">Ask about your gear, connections, or studio setup.</p>
@@ -90,7 +100,7 @@ export function ChatPage() {
         {messages.map((msg, i) => (
           <div key={i} className={`chat-message chat-message-${msg.role}`}>
             <div className="chat-message-content">
-              {msg.role === 'assistant' ? <Markdown>{msg.content}</Markdown> : msg.content}
+              {msg.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown> : msg.content}
             </div>
           </div>
         ))}

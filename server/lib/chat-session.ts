@@ -1,5 +1,4 @@
 import { readFile, writeFile, unlink } from 'node:fs/promises'
-import { join } from 'node:path'
 import { runClaude, type ClaudeResult, type ClaudeOptions } from './claude-cli'
 
 export interface ChatMessage {
@@ -11,8 +10,8 @@ export class ChatSession {
   private readonly historyPath: string
   sessionId: string | undefined
 
-  constructor(dataDir: string) {
-    this.historyPath = join(dataDir, 'chat-history.json')
+  constructor(historyPath: string) {
+    this.historyPath = historyPath
   }
 
   async getHistory(): Promise<ChatMessage[]> {

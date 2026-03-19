@@ -15,6 +15,8 @@ npm install
 npm run dev
 ```
 
+Or [download the zip](https://github.com/lhayhurst/sonolex/archive/refs/heads/main.zip) if you don't have git installed — unzip, then run the last three commands above.
+
 Works on **macOS** and **Linux**. On Linux, you may need to install Node.js via [nvm](https://github.com/nvm-sh/nvm) if your distro ships an older version.
 
 ## Features

@@ -4,19 +4,25 @@ A local-first app for music studio documentation. Upload equipment manuals, chat
 
 ## Quick Start
 
+Requires **Node.js 18+** and a **Claude subscription** (Pro, Max, or Team).
+
 ```bash
 npm install -g @anthropic-ai/claude-code  # Install Claude Code CLI
 claude                                     # Sign in once
+git clone https://github.com/lhayhurst/sonolex.git
+cd sonolex
 npm install
-make run
+npm run dev
 ```
+
+Works on **macOS** and **Linux**. On Linux, you may need to install Node.js via [nvm](https://github.com/nvm-sh/nvm) if your distro ships an older version.
 
 ## Features
 
-- **Studio Visualization** — Interactive SVG graph of your gear and signal flow
-- **Manual Browser** — Full-text search across all your equipment manuals
-- **AI-Powered Setup** — Chat with Claude to build your studio map from manuals
-- **Publish** — Export a static read-only site to share your studio setup
+- **Manual Browser** — Upload equipment PDFs, Claude extracts MIDI CCs, specs, and connection details into searchable sections
+- **Context-Aware Chat** — Multiple chat sessions, mention a device and Claude automatically loads that manual
+- **Living Studio Document** — Tell Claude how your gear connects, it builds and maintains your setup doc
+- **Local-First & Private** — Runs entirely on your machine, no cloud database, no accounts
 
 ## How it works
 

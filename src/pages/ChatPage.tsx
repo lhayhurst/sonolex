@@ -15,6 +15,7 @@ export function ChatPage() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // If no sessionId, create a new session and redirect
   useEffect(() => {
@@ -58,6 +59,7 @@ export function ChatPage() {
     const userMessage = input.trim()
     setInput('')
     setSending(true)
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
 
     setMessages(prev => [...prev, { role: 'user', content: userMessage }])
 
@@ -79,6 +81,14 @@ export function ChatPage() {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error: Failed to connect to server' }])
     } finally {
       setSending(false)
+    }
+  }
+
+  function autoGrow() {
+    const el = textareaRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
     }
   }
 
@@ -114,9 +124,10 @@ export function ChatPage() {
 
       <div className="chat-input-bar">
         <textarea
+          ref={textareaRef}
           className="chat-input"
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => { setInput(e.target.value); autoGrow() }}
           onKeyDown={handleKeyDown}
           placeholder="Ask about your gear..."
           rows={1}

@@ -624,6 +624,8 @@ body {
   background: var(--bg);
   color: var(--text-h);
   resize: none;
+  max-height: 200px;
+  overflow-y: auto;
   outline: none;
 }
 

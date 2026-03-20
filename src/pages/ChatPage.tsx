@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  imageUrl?: string
 }
 
 const remarkPlugins = [remarkGfm]
@@ -14,6 +15,9 @@ const ChatMessageItem = memo(function ChatMessageItem({ msg }: { msg: ChatMessag
   return (
     <div className={`chat-message chat-message-${msg.role}`}>
       <div className="chat-message-content">
+        {msg.imageUrl && (
+          <img src={msg.imageUrl} alt="Pasted image" className="chat-image" />
+        )}
         {msg.role === 'assistant'
           ? <Markdown remarkPlugins={remarkPlugins}>{msg.content}</Markdown>
           : msg.content}
@@ -46,12 +50,18 @@ const ChatMessageList = memo(function ChatMessageList({
   )
 })
 
+interface PendingImage {
+  file: File
+  previewUrl: string
+}
+
 export function ChatPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [pendingImage, setPendingImage] = useState<PendingImage | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -91,21 +101,54 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })
   }, [messages])
 
-  async function handleSend() {
-    if (!input.trim() || sending || !sessionId) return
+  // Clean up preview URL on unmount or change
+  useEffect(() => {
+    return () => {
+      if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl)
+    }
+  }, [pendingImage])
 
-    const userMessage = input.trim()
+  async function uploadImage(file: File): Promise<{ path: string; url: string } | null> {
+    const formData = new FormData()
+    formData.append('image', file)
+    try {
+      const res = await fetch('/api/chat/images', { method: 'POST', body: formData })
+      if (res.ok) return await res.json()
+    } catch {
+      // Ignore
+    }
+    return null
+  }
+
+  async function handleSend() {
+    if ((!input.trim() && !pendingImage) || sending || !sessionId) return
+
+    const userMessage = input.trim() || (pendingImage ? 'What is this image?' : '')
+    const currentImage = pendingImage
     setInput('')
+    setPendingImage(null)
     setSending(true)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
 
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    // Upload image first if present
+    let imagePath: string | undefined
+    let imageUrl: string | undefined
+    if (currentImage) {
+      const uploaded = await uploadImage(currentImage.file)
+      if (uploaded) {
+        imagePath = uploaded.path
+        imageUrl = uploaded.url
+      }
+      URL.revokeObjectURL(currentImage.previewUrl)
+    }
+
+    setMessages(prev => [...prev, { role: 'user', content: userMessage, imageUrl }])
 
     try {
       const res = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ message: userMessage, imagePath }),
       })
 
       if (res.ok) {
@@ -137,6 +180,30 @@ export function ChatPage() {
     }
   }
 
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData.items
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) {
+          setPendingImage({
+            file,
+            previewUrl: URL.createObjectURL(file),
+          })
+        }
+        return
+      }
+    }
+  }
+
+  function removePendingImage() {
+    if (pendingImage) {
+      URL.revokeObjectURL(pendingImage.previewUrl)
+      setPendingImage(null)
+    }
+  }
+
   if (!sessionId) return null
 
   return (
@@ -147,24 +214,33 @@ export function ChatPage() {
       </div>
 
       <div className="chat-input-bar">
-        <textarea
-          ref={textareaRef}
-          className="chat-input"
-          value={input}
-          onChange={e => { setInput(e.target.value); autoGrow() }}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about your gear..."
-          rows={1}
-          disabled={sending}
-        />
-        <button
-          className="chat-send"
-          onClick={handleSend}
-          disabled={!input.trim() || sending}
-          aria-label="Send"
-        >
-          Send
-        </button>
+        {pendingImage && (
+          <div className="chat-image-preview">
+            <img src={pendingImage.previewUrl} alt="To send" />
+            <button className="chat-image-remove" onClick={removePendingImage} aria-label="Remove image">×</button>
+          </div>
+        )}
+        <div className="chat-input-row">
+          <textarea
+            ref={textareaRef}
+            className="chat-input"
+            value={input}
+            onChange={e => { setInput(e.target.value); autoGrow() }}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={pendingImage ? 'Add a message about this image...' : 'Ask about your gear...'}
+            rows={1}
+            disabled={sending}
+          />
+          <button
+            className="chat-send"
+            onClick={handleSend}
+            disabled={(!input.trim() && !pendingImage) || sending}
+            aria-label="Send"
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   )

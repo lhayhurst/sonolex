@@ -608,10 +608,56 @@ body {
 
 .chat-input-bar {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Image in chat messages */
+.chat-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Image preview before sending */
+.chat-image-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.chat-image-preview img {
+  max-height: 120px;
+  max-width: 200px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.chat-image-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-h);
+  color: var(--bg);
+  border: none;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-input {

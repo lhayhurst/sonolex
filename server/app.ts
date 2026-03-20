@@ -209,8 +209,48 @@ export async function createApp(storage: Storage, dataDir?: string) {
     res.json(messages)
   })
 
+  // Upload an image for use in chat
+  app.post('/api/chat/images', upload.single('image'), async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'No image uploaded' })
+      return
+    }
+
+    const imagesDir = join(resolvedDataDir, 'chat-images')
+    await mkdir(imagesDir, { recursive: true })
+
+    const ext = req.file.mimetype === 'image/png' ? '.png'
+      : req.file.mimetype === 'image/jpeg' ? '.jpg'
+      : req.file.mimetype === 'image/gif' ? '.gif'
+      : req.file.mimetype === 'image/webp' ? '.webp'
+      : '.png'
+    const filename = `${crypto.randomUUID()}${ext}`
+    const filePath = join(imagesDir, filename)
+    await writeFile(filePath, req.file.buffer)
+
+    res.status(201).json({ path: filePath, filename, url: `/api/chat/images/${filename}` })
+  })
+
+  // Serve chat images
+  app.get('/api/chat/images/:filename', async (req, res) => {
+    const filePath = join(resolvedDataDir, 'chat-images', req.params.filename)
+    try {
+      const buffer = await readFile(filePath)
+      const ext = req.params.filename.split('.').pop()
+      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+        : ext === 'png' ? 'image/png'
+        : ext === 'gif' ? 'image/gif'
+        : ext === 'webp' ? 'image/webp'
+        : 'application/octet-stream'
+      res.setHeader('Content-Type', mime)
+      res.send(buffer)
+    } catch {
+      res.status(404).json({ error: 'Image not found' })
+    }
+  })
+
   app.post('/api/chat/sessions/:id/messages', async (req, res) => {
-    const { message } = req.body as { message?: string }
+    const { message, imagePath } = req.body as { message?: string; imagePath?: string }
     if (!message) {
       res.status(400).json({ error: 'message is required' })
       return
@@ -229,6 +269,11 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
       // Build enriched message with context
       let enrichedMessage = message
+
+      // If user pasted an image, tell Claude where to find it
+      if (imagePath) {
+        enrichedMessage += `\n\n--- Image ---\nThe user has pasted an image. Read it at: ${imagePath}\nDescribe or analyze the image as part of your response.`
+      }
 
       // Inject relevant manual content if the user mentions a device
       const relevant = findRelevantManuals(message, manuals)
@@ -250,7 +295,14 @@ export async function createApp(storage: Storage, dataDir?: string) {
         addDirs: [resolvedDataDir],
       }
 
-      const result = await chatSession.send(enrichedMessage, systemPrompt, message, chatOptions)
+      // Derive the serving URL for the image so it displays in chat history
+      let imageUrl: string | undefined
+      if (imagePath) {
+        const filename = imagePath.split('/').pop()
+        imageUrl = `/api/chat/images/${filename}`
+      }
+
+      const result = await chatSession.send(enrichedMessage, systemPrompt, message, chatOptions, imageUrl)
 
       // Update the session's last message timestamp
       await sessionManager.updateLastMessageAt(req.params.id)

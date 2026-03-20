@@ -4,6 +4,7 @@ import { runClaude, type ClaudeResult, type ClaudeOptions } from './claude-cli'
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  imageUrl?: string
 }
 
 export class ChatSession {
@@ -30,6 +31,7 @@ export class ChatSession {
     systemPrompt: string,
     displayMessage?: string,
     extraOptions?: Partial<ClaudeOptions>,
+    imageUrl?: string,
   ): Promise<ClaudeResult> {
     const result = await runClaude(claudeMessage, {
       systemPrompt: !this.sessionId ? systemPrompt : undefined,
@@ -43,7 +45,9 @@ export class ChatSession {
 
     // Store the display message (without injected manual content), not what we sent to Claude
     const messages = await this.getHistory()
-    messages.push({ role: 'user', content: displayMessage ?? claudeMessage })
+    const userMsg: ChatMessage = { role: 'user', content: displayMessage ?? claudeMessage }
+    if (imageUrl) userMsg.imageUrl = imageUrl
+    messages.push(userMsg)
     messages.push({ role: 'assistant', content: result.text })
     await this.saveHistory(messages)
 

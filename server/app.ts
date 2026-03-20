@@ -180,7 +180,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
     }
   })
 
-  // Import from URL (web crawl + convert)
+  // Import from URL (web crawl + convert) — streams NDJSON progress
   app.post('/api/import-url', async (req, res) => {
     const { url } = req.body as { url?: string }
     if (!url) {
@@ -196,16 +196,34 @@ export async function createApp(storage: Storage, dataDir?: string) {
         return
       }
 
-      // Crawl the docs site
-      const crawlResult = await crawlDocs(url, { maxPages: 50, delayMs: 200 })
+      // Stream NDJSON progress
+      res.setHeader('Content-Type', 'application/x-ndjson')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+
+      function send(event: Record<string, unknown>) {
+        res.write(JSON.stringify(event) + '\n')
+      }
+
+      // Crawl with progress reporting
+      const crawlResult = await crawlDocs(url, {
+        maxPages: 50,
+        delayMs: 200,
+        onProgress: (crawled, total, pageUrl) => {
+          send({ type: 'progress', crawled, total, url: pageUrl })
+        },
+      })
 
       if (crawlResult.pages.length === 0) {
         const errorDetail = crawlResult.errors.length > 0
           ? `: ${crawlResult.errors[0]}`
           : ''
-        res.status(422).json({ error: `No content found at ${url}${errorDetail}` })
+        send({ type: 'error', message: `No content found at ${url}${errorDetail}` })
+        res.end()
         return
       }
+
+      send({ type: 'converting', pagesFound: crawlResult.pages.length })
 
       // Combine all pages into a single text
       const combinedText = crawlResult.pages
@@ -233,17 +251,21 @@ export async function createApp(storage: Storage, dataDir?: string) {
         durationMs: converted.usage.durationMs,
       })
 
-      res.status(201).json({
-        ...manual,
-        usage: converted.usage,
+      send({
+        type: 'done',
+        manual: { ...manual, usage: converted.usage },
         crawlStats: {
           pagesFound: crawlResult.pages.length,
           errors: crawlResult.errors,
         },
       })
+      res.end()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      if (message.includes('claude CLI failed')) {
+      if (res.headersSent) {
+        res.write(JSON.stringify({ type: 'error', message }) + '\n')
+        res.end()
+      } else if (message.includes('claude CLI failed')) {
         res.status(503).json({ error: 'Claude CLI is not available. Install it with: npm install -g @anthropic-ai/claude-code' })
       } else {
         res.status(500).json({ error: message })

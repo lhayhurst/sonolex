@@ -106,37 +106,8 @@ export function useUploadState(onUploaded?: (manual: Manual) => void): UploadSta
     setError('')
     setUsage(null)
     setEstimatedMs(null)
-    setStatusMessage('Discovering pages...')
+    setStatusMessage('Starting crawl...')
 
-    // Phase 1: Discover pages
-    try {
-      const preflightRes = await fetch('/api/import-url/preflight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      })
-
-      if (!preflightRes.ok) {
-        const data = await preflightRes.json()
-        throw new Error(data.error || 'Preflight failed')
-      }
-
-      const preflight = await preflightRes.json()
-      const pageCount = preflight.pageCount
-
-      if (pageCount === 0) {
-        throw new Error('No pages found at this URL')
-      }
-
-      setStatusMessage(`Found ${pageCount} pages — crawling and converting...`)
-    } catch (err) {
-      setStatus('error')
-      setError(err instanceof Error ? err.message : 'Discovery failed')
-      setStatusMessage('')
-      return
-    }
-
-    // Phase 2: Full crawl + convert
     try {
       const response = await fetch('/api/import-url', {
         method: 'POST',
@@ -144,16 +115,46 @@ export function useUploadState(onUploaded?: (manual: Manual) => void): UploadSta
         body: JSON.stringify({ url }),
       })
 
-      if (!response.ok) {
+      if (!response.ok && !response.body) {
         const data = await response.json()
         throw new Error(data.error || 'Import failed')
       }
 
-      const data = await response.json()
-      if (data.usage) setUsage(data.usage)
-      setStatus('done')
-      setStatusMessage('')
-      onUploadedRef.current?.(data)
+      // Read NDJSON stream
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'progress') {
+              setStatusMessage(`Crawling page ${event.crawled} of ${event.total}...`)
+            } else if (event.type === 'converting') {
+              setStatusMessage(`Crawled ${event.pagesFound} pages — converting with Claude...`)
+            } else if (event.type === 'done') {
+              if (event.manual?.usage) setUsage(event.manual.usage)
+              setStatus('done')
+              setStatusMessage('')
+              onUploadedRef.current?.(event.manual)
+            } else if (event.type === 'error') {
+              throw new Error(event.message)
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) continue
+            throw parseErr
+          }
+        }
+      }
     } catch (err) {
       setStatus('error')
       setError(err instanceof Error ? err.message : 'Import failed')

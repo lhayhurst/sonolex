@@ -15,6 +15,7 @@ export interface CrawlOptions {
   fetchFn?: typeof fetch
   delayMs?: number
   maxPages?: number
+  onProgress?: (crawled: number, total: number, url: string) => void
 }
 
 export function extractPageContent(html: string, _url: string): { title: string; text: string } {
@@ -118,6 +119,7 @@ export async function crawlDocs(startUrl: string, options?: CrawlOptions): Promi
   const fetchFn = options?.fetchFn ?? fetch
   const delayMs = options?.delayMs ?? 200
   const maxPages = options?.maxPages ?? 50
+  const onProgress = options?.onProgress
 
   const prefixUrl = startUrl
 
@@ -147,6 +149,7 @@ export async function crawlDocs(startUrl: string, options?: CrawlOptions): Promi
 
       if (text) {
         pages.push({ url, title, text })
+        onProgress?.(pages.length, pages.length + queue.length, url)
       }
 
       // Find more links to crawl

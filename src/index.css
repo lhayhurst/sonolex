@@ -947,6 +947,67 @@ h3 {
 /* ============================================
    PDF Upload
    ============================================ */
+/* URL Import */
+.url-import {
+  margin-bottom: 24px;
+}
+
+.url-import-row {
+  display: flex;
+  gap: 8px;
+}
+
+.url-import-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: var(--sans);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  outline: none;
+}
+
+.url-import-input:focus {
+  border-color: var(--accent);
+}
+
+.url-import-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.url-import-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.url-import-status {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.url-import-progress {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.url-import-success {
+  color: var(--accent);
+}
+
+.url-import-error {
+  color: #dc2626;
+}
+
 .pdf-upload {
   margin-bottom: 24px;
 }

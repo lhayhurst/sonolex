@@ -12,6 +12,7 @@ import { ConversionHistory } from './lib/conversion-history'
 import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './lib/studio-prompt'
+import { crawlDocs } from './lib/web-crawler'
 import { createManual } from '../src/types/index'
 import type { StudioData, Manual } from '../src/types/index'
 
@@ -146,6 +147,77 @@ export async function createApp(storage: Storage, dataDir?: string) {
       })
 
       res.status(201).json({ ...manual, usage: converted.usage })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      if (message.includes('claude CLI failed')) {
+        res.status(503).json({ error: 'Claude CLI is not available. Install it with: npm install -g @anthropic-ai/claude-code' })
+      } else {
+        res.status(500).json({ error: message })
+      }
+    }
+  })
+
+  // Import from URL (web crawl + convert)
+  app.post('/api/import-url', async (req, res) => {
+    const { url } = req.body as { url?: string }
+    if (!url) {
+      res.status(400).json({ error: 'url is required' })
+      return
+    }
+
+    try {
+      // Validate URL
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        res.status(400).json({ error: 'URL must use http or https' })
+        return
+      }
+
+      // Crawl the docs site
+      const crawlResult = await crawlDocs(url, { maxPages: 50, delayMs: 200 })
+
+      if (crawlResult.pages.length === 0) {
+        const errorDetail = crawlResult.errors.length > 0
+          ? `: ${crawlResult.errors[0]}`
+          : ''
+        res.status(422).json({ error: `No content found at ${url}${errorDetail}` })
+        return
+      }
+
+      // Combine all pages into a single text
+      const combinedText = crawlResult.pages
+        .map(p => `# ${p.title}\n\n${p.text}`)
+        .join('\n\n---\n\n')
+
+      // Convert via Claude (same as PDF flow)
+      const converted = await convertToManual(combinedText, url)
+
+      const id = crypto.randomUUID()
+      const manual = createManual({
+        id,
+        title: converted.title,
+        summary: converted.summary,
+        content: converted.content,
+        sections: converted.sections,
+        sourceFileName: url,
+        convertedAt: new Date().toISOString(),
+      })
+
+      await storage.saveManual(manual)
+
+      await history.record({
+        inputChars: combinedText.length,
+        durationMs: converted.usage.durationMs,
+      })
+
+      res.status(201).json({
+        ...manual,
+        usage: converted.usage,
+        crawlStats: {
+          pagesFound: crawlResult.pages.length,
+          errors: crawlResult.errors,
+        },
+      })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       if (message.includes('claude CLI failed')) {

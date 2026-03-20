@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PdfUpload } from '../components/manuals/PdfUpload'
+import { UrlImport } from '../components/manuals/UrlImport'
 import { useManualCallback } from '../components/layout/AppShell'
 import type { Manual } from '../types/index'
 
@@ -96,6 +97,7 @@ export function ManualsPage() {
       <h1>Manuals</h1>
 
       <PdfUpload />
+      <UrlImport onImported={loadManuals} />
 
       {loading ? (
         <p>Loading...</p>

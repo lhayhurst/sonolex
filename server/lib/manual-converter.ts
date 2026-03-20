@@ -38,7 +38,12 @@ export async function convertToManual(
   const { text: output, usage } = await runClaude(prompt)
   const jsonText = stripMarkdownFences(output)
 
-  const parsed = JSON.parse(jsonText) as { title: string; summary?: string; sections: ManualSection[] }
+  let parsed: { title: string; summary?: string; sections: ManualSection[] }
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch {
+    throw new Error('Claude returned an invalid response — the content may be too large or complex. Try a smaller docs section.')
+  }
 
   return {
     title: parsed.title,

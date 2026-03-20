@@ -25,6 +25,14 @@ vi.mock('./lib/claude-cli', () => ({
 
 import { runClaude } from './lib/claude-cli'
 
+// Mock web-crawler
+vi.mock('./lib/web-crawler', () => ({
+  crawlDocs: vi.fn(),
+  discoverPages: vi.fn(),
+}))
+
+import { crawlDocs } from './lib/web-crawler'
+
 describe('API routes', () => {
   let tempDir: string
   let storage: Storage
@@ -481,6 +489,151 @@ describe('API routes', () => {
       expect(res.status).toBe(200)
       expect(res.body.studioUpdated).toBe(true)
       expect(res.body.text).toBe('I\'ve added the Monolit to your studio doc.')
+    })
+  })
+
+  // --- URL Import ---
+
+  function parseNdjson(text: string): unknown[] {
+    return text.split('\n').filter(l => l.trim()).map(l => JSON.parse(l))
+  }
+
+  describe('POST /api/import-url', () => {
+    it('streams NDJSON progress events during crawl', async () => {
+      vi.mocked(crawlDocs).mockImplementation(async (_url, options) => {
+        // Simulate progress callbacks
+        options?.onProgress?.(1, 3, 'https://example.com/docs/')
+        options?.onProgress?.(2, 3, 'https://example.com/docs/setup')
+        options?.onProgress?.(3, 3, 'https://example.com/docs/midi')
+        return {
+          pages: [
+            { url: 'https://example.com/docs/', title: 'Home', text: 'Welcome.' },
+            { url: 'https://example.com/docs/setup', title: 'Setup', text: 'Install.' },
+            { url: 'https://example.com/docs/midi', title: 'MIDI', text: 'MIDI info.' },
+          ],
+          errors: [],
+        }
+      })
+
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({ url: 'https://example.com/docs/' })
+        .set('Content-Type', 'application/json')
+
+      const events = parseNdjson(res.text)
+
+      // Should have 3 progress events + 1 converting + 1 done
+      const progressEvents = events.filter((e: any) => e.type === 'progress')
+      expect(progressEvents).toHaveLength(3)
+      expect((progressEvents[0] as any).crawled).toBe(1)
+      expect((progressEvents[0] as any).total).toBe(3)
+
+      const convertingEvents = events.filter((e: any) => e.type === 'converting')
+      expect(convertingEvents).toHaveLength(1)
+      expect((convertingEvents[0] as any).pagesFound).toBe(3)
+
+      const doneEvents = events.filter((e: any) => e.type === 'done')
+      expect(doneEvents).toHaveLength(1)
+      expect((doneEvents[0] as any).manual.title).toBe('Test Manual')
+    })
+
+    it('streams error event when Claude returns non-JSON', async () => {
+      vi.mocked(crawlDocs).mockResolvedValue({
+        pages: [{ url: 'https://example.com/docs/', title: 'Home', text: 'Welcome.' }],
+        errors: [],
+      })
+
+      // Make Claude return conversational text instead of JSON
+      vi.mocked(runClaude).mockResolvedValueOnce({
+        text: "I'll work on converting this manual for you...",
+        usage: { inputTokens: 100, outputTokens: 50, costUsd: 0.01, durationMs: 5000 },
+        sessionId: 'test-session-999',
+      })
+
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({ url: 'https://example.com/docs/' })
+        .set('Content-Type', 'application/json')
+
+      const events = parseNdjson(res.text)
+      const errorEvents = events.filter((e: any) => e.type === 'error')
+      expect(errorEvents).toHaveLength(1)
+      // Error should be a clean message, not raw Claude output
+      expect((errorEvents[0] as any).message).toBeDefined()
+    })
+
+    it('streams error event when crawl finds no pages', async () => {
+      vi.mocked(crawlDocs).mockResolvedValue({
+        pages: [],
+        errors: ['https://example.com/docs/: HTTP 404'],
+      })
+
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({ url: 'https://example.com/docs/' })
+        .set('Content-Type', 'application/json')
+
+      const events = parseNdjson(res.text)
+      const errorEvents = events.filter((e: any) => e.type === 'error')
+      expect(errorEvents).toHaveLength(1)
+      expect((errorEvents[0] as any).message).toContain('No content found')
+    })
+
+    it('returns 400 for missing url', async () => {
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({})
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 for non-http url', async () => {
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({ url: 'ftp://example.com' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(400)
+    })
+
+    it('sets content-type to application/x-ndjson', async () => {
+      vi.mocked(crawlDocs).mockResolvedValue({
+        pages: [{ url: 'https://example.com/docs/', title: 'Home', text: 'Content.' }],
+        errors: [],
+      })
+
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({ url: 'https://example.com/docs/' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.headers['content-type']).toContain('application/x-ndjson')
+    })
+
+    it('all streamed events are valid JSON', async () => {
+      vi.mocked(crawlDocs).mockImplementation(async (_url, options) => {
+        options?.onProgress?.(1, 2, 'https://example.com/docs/')
+        options?.onProgress?.(2, 2, 'https://example.com/docs/page')
+        return {
+          pages: [
+            { url: 'https://example.com/docs/', title: 'Home', text: 'Content.' },
+            { url: 'https://example.com/docs/page', title: 'Page', text: 'More.' },
+          ],
+          errors: [],
+        }
+      })
+
+      const res = await request(app)
+        .post('/api/import-url')
+        .send({ url: 'https://example.com/docs/' })
+        .set('Content-Type', 'application/json')
+
+      // Every non-empty line must be valid JSON
+      const lines = res.text.split('\n').filter(l => l.trim())
+      for (const line of lines) {
+        expect(() => JSON.parse(line)).not.toThrow()
+      }
     })
   })
 

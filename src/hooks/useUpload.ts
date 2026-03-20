@@ -115,9 +115,17 @@ export function useUploadState(onUploaded?: (manual: Manual) => void): UploadSta
         body: JSON.stringify({ url }),
       })
 
-      if (!response.ok && !response.body) {
+      const contentType = response.headers.get('content-type') ?? ''
+      if (!contentType.includes('ndjson')) {
+        // Non-streaming response (validation error, etc.)
         const data = await response.json()
-        throw new Error(data.error || 'Import failed')
+        if (!response.ok) throw new Error(data.error || 'Import failed')
+        // Shouldn't happen, but handle gracefully
+        if (data.usage) setUsage(data.usage)
+        setStatus('done')
+        setStatusMessage('')
+        onUploadedRef.current?.(data)
+        return
       }
 
       // Read NDJSON stream

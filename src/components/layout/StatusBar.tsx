@@ -23,7 +23,9 @@ export function StatusBar({ upload }: StatusBarProps) {
         <>
           <div className="status-bar-left">
             <span className="status-bar-spinner" />
-            <span className="status-bar-text">Converting {upload.fileName}</span>
+            <span className="status-bar-text">
+              {upload.statusMessage || `Converting ${upload.fileName}`}
+            </span>
           </div>
           <div className="status-bar-center">
             <div className="progress-bar">

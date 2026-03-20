@@ -97,7 +97,7 @@ export function ManualsPage() {
       <h1>Manuals</h1>
 
       <PdfUpload />
-      <UrlImport onImported={loadManuals} />
+      <UrlImport />
 
       {loading ? (
         <p>Loading...</p>

@@ -12,7 +12,7 @@ import { ConversionHistory } from './lib/conversion-history'
 import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './lib/studio-prompt'
-import { crawlDocs } from './lib/web-crawler'
+import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { createManual } from '../src/types/index'
 import type { StudioData, Manual } from '../src/types/index'
 
@@ -154,6 +154,29 @@ export async function createApp(storage: Storage, dataDir?: string) {
       } else {
         res.status(500).json({ error: message })
       }
+    }
+  })
+
+  // Preflight: discover pages at a URL
+  app.post('/api/import-url/preflight', async (req, res) => {
+    const { url } = req.body as { url?: string }
+    if (!url) {
+      res.status(400).json({ error: 'url is required' })
+      return
+    }
+
+    try {
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        res.status(400).json({ error: 'URL must use http or https' })
+        return
+      }
+
+      const result = await discoverPages(url, { maxPages: 50, delayMs: 100 })
+      res.json({ pageCount: result.urls.length, errors: result.errors })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Discovery failed'
+      res.status(500).json({ error: message })
     }
   })
 

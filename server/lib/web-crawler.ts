@@ -68,6 +68,52 @@ export function resolveLinks(html: string, currentUrl: string, prefixUrl: string
   return links
 }
 
+export async function discoverPages(startUrl: string, options?: CrawlOptions): Promise<{ urls: string[]; errors: string[] }> {
+  const fetchFn = options?.fetchFn ?? fetch
+  const delayMs = options?.delayMs ?? 100
+  const maxPages = options?.maxPages ?? 50
+
+  const prefixUrl = startUrl
+  const visited = new Set<string>()
+  const queue: string[] = [startUrl]
+  const urls: string[] = []
+  const errors: string[] = []
+
+  while (queue.length > 0 && urls.length < maxPages) {
+    const url = queue.shift()!
+    if (visited.has(url)) continue
+    visited.add(url)
+
+    try {
+      const res = await fetchFn(url)
+      if (!res.ok) {
+        errors.push(`${url}: HTTP ${res.status}`)
+        continue
+      }
+
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('text/html')) continue
+
+      const html = await res.text()
+      urls.push(url)
+
+      const links = resolveLinks(html, url, prefixUrl)
+      for (const link of links) {
+        if (!visited.has(link)) queue.push(link)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      errors.push(`${url}: ${msg}`)
+    }
+
+    if (delayMs > 0 && queue.length > 0) {
+      await new Promise(r => setTimeout(r, delayMs))
+    }
+  }
+
+  return { urls, errors }
+}
+
 export async function crawlDocs(startUrl: string, options?: CrawlOptions): Promise<CrawlResult> {
   const fetchFn = options?.fetchFn ?? fetch
   const delayMs = options?.delayMs ?? 200

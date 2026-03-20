@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { convertToManual, buildConversionPrompt } from './manual-converter'
+import { convertToManual, buildConversionPrompt, splitIntoChunks } from './manual-converter'
 
 vi.mock('./claude-cli', () => ({
   runClaude: vi.fn(),
@@ -68,5 +68,79 @@ describe('convertToManual', () => {
 
     const result = await convertToManual('raw text', 'manual.pdf')
     expect(result.summary).toBe('')
+  })
+
+  it('chunks large text and combines results', async () => {
+    // Create text larger than the chunk threshold
+    const largeText = 'A'.repeat(60000)
+
+    const mockJson = JSON.stringify({
+      title: 'RME Fireface UCX II',
+      summary: 'A pro audio interface.',
+      sections: [
+        { heading: 'Part 1', content: 'Content from chunk.', level: 1 },
+      ],
+    })
+
+    // Should be called multiple times for chunks
+    vi.mocked(runClaude).mockResolvedValue({ text: mockJson, usage: mockUsage })
+    vi.mocked(stripMarkdownFences).mockReturnValue(mockJson)
+
+    const result = await convertToManual(largeText, 'rme-fireface.pdf')
+
+    // Should have been called more than once (title/summary + chunks)
+    expect(vi.mocked(runClaude).mock.calls.length).toBeGreaterThan(1)
+    expect(result.title).toBe('RME Fireface UCX II')
+    expect(result.sections.length).toBeGreaterThan(0)
+  })
+
+  it('throws clear error when Claude fails on a chunk', async () => {
+    const largeText = 'B'.repeat(60000)
+
+    vi.mocked(runClaude).mockResolvedValue({
+      text: "I can't process this right now",
+      usage: mockUsage,
+    })
+    vi.mocked(stripMarkdownFences).mockReturnValue("I can't process this right now")
+
+    await expect(convertToManual(largeText, 'huge.pdf')).rejects.toThrow(/invalid response/)
+  })
+})
+
+describe('splitIntoChunks', () => {
+  it('returns a single chunk for small text', () => {
+    const chunks = splitIntoChunks('Short text', 50000)
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0]).toBe('Short text')
+  })
+
+  it('splits on double newlines near chunk boundaries', () => {
+    const part1 = 'A'.repeat(100)
+    const part2 = 'B'.repeat(100)
+    const text = `${part1}\n\n${part2}`
+    const chunks = splitIntoChunks(text, 150)
+    expect(chunks).toHaveLength(2)
+    expect(chunks[0]).toContain('A')
+    expect(chunks[1]).toContain('B')
+  })
+
+  it('forces a split if no good break point found', () => {
+    const text = 'A'.repeat(300)
+    const chunks = splitIntoChunks(text, 100)
+    expect(chunks.length).toBeGreaterThan(1)
+    // All content should be preserved
+    expect(chunks.join('')).toBe(text)
+  })
+
+  it('preserves all content across chunks', () => {
+    const part1 = 'Hello world this is part one'
+    const part2 = 'And this is part two'
+    const text = `${part1}\n\n${part2}`
+    const chunks = splitIntoChunks(text, 35)
+    expect(chunks).toHaveLength(2)
+    // All content should be present across chunks
+    const combined = chunks.join(' ')
+    expect(combined).toContain('Hello')
+    expect(combined).toContain('part two')
   })
 })

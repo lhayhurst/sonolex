@@ -1,6 +1,6 @@
 import type { Manual } from '../../src/types/index'
 
-export function buildSystemPrompt(manuals: Manual[]): string {
+export function buildSystemPrompt(manuals: Manual[], studioDocPath?: string): string {
   if (manuals.length === 0) {
     return `You are a music studio assistant. The user has no manuals uploaded yet. Help them get started by suggesting they upload their equipment manuals.`
   }
@@ -34,7 +34,7 @@ When the user asks you to add a device to their studio or update their studio se
 - Ask specific questions: "What is the Monolit connected to? USB-C to the computer? Is the TRS MIDI out going to anything?"
 - Only generate a studio update once you have the connection details.
 
-Be specific and technical when the user's question warrants it. Reference exact MIDI CC numbers, connector types, and settings.`
+Be specific and technical when the user's question warrants it. Reference exact MIDI CC numbers, connector types, and settings.${studioDocPath ? `\n\nThe user's studio setup document is at: ${studioDocPath}\nIf the user asks about their studio setup, signal flow, connections, or how their gear is wired, use the Read tool to check this document for accurate details. Don't guess — read it.` : ''}`
 }
 
 export function findRelevantManuals(message: string, manuals: Manual[]): Manual[] {

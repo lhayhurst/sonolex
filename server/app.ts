@@ -265,7 +265,8 @@ export async function createApp(storage: Storage, dataDir?: string) {
     try {
       const manuals = await storage.listManuals()
       const currentStudioDoc = await studioDoc.load()
-      const systemPrompt = buildSystemPrompt(manuals)
+      const studioFilePath = join(resolvedDataDir, 'studio.md')
+      const systemPrompt = buildSystemPrompt(manuals, currentStudioDoc ? studioFilePath : undefined)
 
       // Build enriched message with context
       let enrichedMessage = message
@@ -283,7 +284,6 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
       // If user wants to update the studio, tell Claude to edit the file directly
       const wantsStudioUpdate = /\b(update|add|change|modify|integrate|include|remove)\b.*\bstudio\b|\bstudio\b.*\b(update|add|change|modify|integrate|include|remove)\b/i.test(message)
-      const studioFilePath = join(resolvedDataDir, 'studio.md')
       if (wantsStudioUpdate) {
         enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nRead it, then use the Edit or Write tool to update it directly. Do NOT output the full document in your response — just describe what you changed.`
       }

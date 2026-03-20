@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -7,6 +7,44 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
+
+const remarkPlugins = [remarkGfm]
+
+const ChatMessageItem = memo(function ChatMessageItem({ msg }: { msg: ChatMessage }) {
+  return (
+    <div className={`chat-message chat-message-${msg.role}`}>
+      <div className="chat-message-content">
+        {msg.role === 'assistant'
+          ? <Markdown remarkPlugins={remarkPlugins}>{msg.content}</Markdown>
+          : msg.content}
+      </div>
+    </div>
+  )
+})
+
+const ChatMessageList = memo(function ChatMessageList({
+  messages,
+  sending,
+}: {
+  messages: ChatMessage[]
+  sending: boolean
+}) {
+  return (
+    <>
+      {messages.length === 0 && (
+        <p className="chat-empty">Ask about your gear, connections, or studio setup.</p>
+      )}
+      {messages.map((msg, i) => (
+        <ChatMessageItem key={i} msg={msg} />
+      ))}
+      {sending && (
+        <div className="chat-message chat-message-assistant">
+          <div className="chat-message-content chat-typing">Thinking...</div>
+        </div>
+      )}
+    </>
+  )
+})
 
 export function ChatPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -104,21 +142,7 @@ export function ChatPage() {
   return (
     <div className="chat-page">
       <div className="chat-messages">
-        {messages.length === 0 && (
-          <p className="chat-empty">Ask about your gear, connections, or studio setup.</p>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`chat-message chat-message-${msg.role}`}>
-            <div className="chat-message-content">
-              {msg.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown> : msg.content}
-            </div>
-          </div>
-        ))}
-        {sending && (
-          <div className="chat-message chat-message-assistant">
-            <div className="chat-message-content chat-typing">Thinking...</div>
-          </div>
-        )}
+        <ChatMessageList messages={messages} sending={sending} />
         <div ref={messagesEndRef} />
       </div>
 

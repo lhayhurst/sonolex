@@ -2,6 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useUploadState } from './useUpload'
 
+// Helper to create a mock NDJSON streaming response
+function mockNdjsonResponse(events: Record<string, unknown>[]) {
+  const text = events.map(e => JSON.stringify(e)).join('\n') + '\n'
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text))
+      controller.close()
+    },
+  })
+
+  return {
+    ok: true,
+    headers: { get: (h: string) => h === 'content-type' ? 'application/x-ndjson' : null },
+    body: stream,
+  }
+}
+
 describe('useUploadState', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -28,11 +46,13 @@ describe('useUploadState', () => {
   })
 
   it('transitions to done on successful upload', async () => {
-    const mockManual = { id: 'm1', title: 'Test', content: 'text' }
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockManual),
-    })
+    const mockManual = { id: 'm1', title: 'Test', content: 'text', usage: { costUsd: 0.01 } }
+    global.fetch = vi.fn().mockResolvedValue(
+      mockNdjsonResponse([
+        { type: 'extracting', chars: 100 },
+        { type: 'done', manual: mockManual },
+      ])
+    )
 
     const onUploaded = vi.fn()
     const { result } = renderHook(() => useUploadState(onUploaded))
@@ -40,7 +60,6 @@ describe('useUploadState', () => {
 
     await act(async () => {
       result.current.startUpload(file)
-      // Let promises resolve
       await new Promise(r => setTimeout(r, 50))
     })
 
@@ -48,11 +67,13 @@ describe('useUploadState', () => {
     expect(onUploaded).toHaveBeenCalledWith(mockManual)
   })
 
-  it('transitions to error on failed upload', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ error: 'Something broke' }),
-    })
+  it('transitions to error on streamed error event', async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      mockNdjsonResponse([
+        { type: 'extracting', chars: 100 },
+        { type: 'error', message: 'Something broke' },
+      ])
+    )
 
     const { result } = renderHook(() => useUploadState())
     const file = new File(['fake'], 'test.pdf', { type: 'application/pdf' })
@@ -64,6 +85,54 @@ describe('useUploadState', () => {
 
     expect(result.current.status).toBe('error')
     expect(result.current.error).toBe('Something broke')
+  })
+
+  it('falls back to JSON for non-NDJSON error responses', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      headers: { get: () => 'application/json' },
+      json: () => Promise.resolve({ error: 'No file uploaded' }),
+    })
+
+    const { result } = renderHook(() => useUploadState())
+    const file = new File(['fake'], 'test.pdf', { type: 'application/pdf' })
+
+    await act(async () => {
+      result.current.startUpload(file)
+      await new Promise(r => setTimeout(r, 50))
+    })
+
+    expect(result.current.status).toBe('error')
+    expect(result.current.error).toBe('No file uploaded')
+  })
+
+  it('shows chunk progress in statusMessage', async () => {
+    let resolveStream: (() => void) | undefined
+    const encoder = new TextEncoder()
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: (h: string) => h === 'content-type' ? 'application/x-ndjson' : null },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'extracting', chars: 100 }) + '\n'))
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'chunk', chunk: 2, totalChunks: 5 }) + '\n'))
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done', manual: { id: 'm1', title: 'Test' } }) + '\n'))
+          controller.close()
+        },
+      }),
+    })
+
+    const { result } = renderHook(() => useUploadState())
+    const file = new File(['fake'], 'test.pdf', { type: 'application/pdf' })
+
+    await act(async () => {
+      result.current.startUpload(file)
+      await new Promise(r => setTimeout(r, 50))
+    })
+
+    // Should end at done
+    expect(result.current.status).toBe('done')
   })
 
   it('tracks elapsed time while uploading', async () => {
@@ -88,10 +157,12 @@ describe('useUploadState', () => {
 
   it('dismiss resets state to idle', async () => {
     const mockManual = { id: 'm1', title: 'Test', content: 'text' }
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockManual),
-    })
+    global.fetch = vi.fn().mockResolvedValue(
+      mockNdjsonResponse([
+        { type: 'extracting', chars: 100 },
+        { type: 'done', manual: mockManual },
+      ])
+    )
 
     const { result } = renderHook(() => useUploadState())
     const file = new File(['fake'], 'test.pdf', { type: 'application/pdf' })

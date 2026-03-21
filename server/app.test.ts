@@ -166,19 +166,27 @@ describe('API routes', () => {
     'trailer<</Size 6/Root 1 0 R>>\nstartxref\n431\n%%EOF'
   )
 
+  // Helper to extract the 'done' event from NDJSON upload response
+  function parseDoneEvent(text: string): any {
+    const events = parseNdjson(text)
+    return events.find((e: any) => e.type === 'done')
+  }
+
   describe('POST /api/upload-pdf', () => {
     it('extracts text from PDF and converts via Claude CLI', async () => {
       const res = await request(app)
         .post('/api/upload-pdf')
         .attach('pdf', MINIMAL_PDF, 'test-manual.pdf')
 
-      expect(res.status).toBe(201)
-      expect(res.body.title).toBe('Test Manual')
-      expect(res.body.sections).toHaveLength(1)
-      expect(res.body.id).toBeDefined()
-      expect(res.body.sourceFileName).toBe('test-manual.pdf')
+      expect(res.status).toBe(200)
+      const done = parseDoneEvent(res.text)
+      expect(done).toBeDefined()
+      expect(done.manual.title).toBe('Test Manual')
+      expect(done.manual.sections).toHaveLength(1)
+      expect(done.manual.id).toBeDefined()
+      expect(done.manual.sourceFileName).toBe('test-manual.pdf')
 
-      const saved = await storage.loadManual(res.body.id)
+      const saved = await storage.loadManual(done.manual.id)
       expect(saved).toBeDefined()
       expect(saved!.title).toBe('Test Manual')
     })
@@ -193,12 +201,12 @@ describe('API routes', () => {
         .post('/api/upload-pdf')
         .attach('pdf', MINIMAL_PDF, 'test-manual.pdf')
 
-      expect(res.status).toBe(201)
-      expect(res.body.pdfPath).toBeDefined()
+      expect(res.status).toBe(200)
+      const done = parseDoneEvent(res.text)
+      expect(done.manual.pdfPath).toBeDefined()
 
-      // Verify PDF file was saved
       const { readFile: rf } = await import('node:fs/promises')
-      const savedPdf = await rf(join(tempDir, 'pdfs', `${res.body.id}.pdf`))
+      const savedPdf = await rf(join(tempDir, 'pdfs', `${done.manual.id}.pdf`))
       expect(savedPdf.length).toBeGreaterThan(0)
     })
 
@@ -207,7 +215,8 @@ describe('API routes', () => {
         .post('/api/upload-pdf')
         .attach('pdf', MINIMAL_PDF, 'test-manual.pdf')
 
-      const pdfRes = await request(app).get(`/api/manuals/${uploadRes.body.id}/pdf`)
+      const done = parseDoneEvent(uploadRes.text)
+      const pdfRes = await request(app).get(`/api/manuals/${done.manual.id}/pdf`)
       expect(pdfRes.status).toBe(200)
       expect(pdfRes.headers['content-type']).toMatch(/pdf/)
       expect(pdfRes.body.length).toBe(MINIMAL_PDF.length)
@@ -218,7 +227,7 @@ describe('API routes', () => {
       expect(res.status).toBe(404)
     })
 
-    it('returns 503 when Claude CLI fails', async () => {
+    it('streams error when Claude CLI fails', async () => {
       vi.mocked(runClaude).mockRejectedValueOnce(
         new Error('claude CLI failed: command not found')
       )
@@ -227,8 +236,21 @@ describe('API routes', () => {
         .post('/api/upload-pdf')
         .attach('pdf', MINIMAL_PDF, 'test.pdf')
 
-      expect(res.status).toBe(503)
-      expect(res.body.error).toMatch(/claude cli/i)
+      const events = parseNdjson(res.text)
+      const errorEvent = events.find((e: any) => e.type === 'error')
+      expect(errorEvent).toBeDefined()
+      expect((errorEvent as any).message).toMatch(/claude cli/i)
+    })
+
+    it('streams all events as valid JSON', async () => {
+      const res = await request(app)
+        .post('/api/upload-pdf')
+        .attach('pdf', MINIMAL_PDF, 'test-manual.pdf')
+
+      const lines = res.text.split('\n').filter(l => l.trim())
+      for (const line of lines) {
+        expect(() => JSON.parse(line)).not.toThrow()
+      }
     })
   })
 

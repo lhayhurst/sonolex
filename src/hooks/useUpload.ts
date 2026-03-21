@@ -53,46 +53,66 @@ export function useUploadState(onUploaded?: (manual: Manual) => void): UploadSta
     setError('')
     setUsage(null)
     setEstimatedMs(null)
-    setStatusMessage('Extracting text...')
+    setStatusMessage('Uploading...')
 
     const formData = new FormData()
     formData.append('pdf', file)
 
-    // Phase 1: Extract text and get estimate
-    try {
-      const extractForm = new FormData()
-      extractForm.append('pdf', file)
-      const estRes = await fetch('/api/extract-text', {
-        method: 'POST',
-        body: extractForm,
-      })
-      if (estRes.ok) {
-        const estData = await estRes.json()
-        if (estData.estimatedMs) setEstimatedMs(estData.estimatedMs)
-      }
-    } catch {
-      // Best-effort
-    }
-
-    setStatusMessage('Converting with Claude...')
-
-    // Phase 2: Full conversion
     try {
       const response = await fetch('/api/upload-pdf', {
         method: 'POST',
         body: formData,
       })
 
-      if (!response.ok) {
+      const contentType = response.headers.get('content-type') ?? ''
+      if (!contentType.includes('ndjson')) {
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Upload failed')
+        }
         const data = await response.json()
-        throw new Error(data.error || 'Upload failed')
+        if (data.usage) setUsage(data.usage)
+        setStatus('done')
+        setStatusMessage('')
+        onUploadedRef.current?.(data)
+        return
       }
 
-      const data = await response.json()
-      if (data.usage) setUsage(data.usage)
-      setStatus('done')
-      setStatusMessage('')
-      onUploadedRef.current?.(data)
+      // Read NDJSON stream
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            if (event.type === 'extracting') {
+              setStatusMessage('Extracting text...')
+            } else if (event.type === 'chunk') {
+              setStatusMessage(`Converting chunk ${event.chunk} of ${event.totalChunks}...`)
+            } else if (event.type === 'done') {
+              if (event.manual?.usage) setUsage(event.manual.usage)
+              setStatus('done')
+              setStatusMessage('')
+              onUploadedRef.current?.(event.manual)
+            } else if (event.type === 'error') {
+              throw new Error(event.message)
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) continue
+            throw parseErr
+          }
+        }
+      }
     } catch (err) {
       setStatus('error')
       setError(err instanceof Error ? err.message : 'Upload failed')

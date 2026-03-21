@@ -108,7 +108,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
     }
   })
 
-  // PDF Upload
+  // PDF Upload — streams NDJSON progress for large manuals
   app.post('/api/upload-pdf', upload.single('pdf'), async (req, res) => {
     if (!req.file) {
       res.status(400).json({ error: 'No PDF file uploaded' })
@@ -117,7 +117,23 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
     try {
       const { text } = await extractTextFromPdf(req.file.buffer)
-      const converted = await convertToManual(text, req.file.originalname)
+
+      // Set up streaming for progress
+      res.setHeader('Content-Type', 'application/x-ndjson')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+
+      function send(event: Record<string, unknown>) {
+        res.write(JSON.stringify(event) + '\n')
+      }
+
+      send({ type: 'extracting', chars: text.length })
+
+      const converted = await convertToManual(text, req.file.originalname, {
+        onChunkProgress: (chunk, totalChunks) => {
+          send({ type: 'chunk', chunk, totalChunks })
+        },
+      })
 
       const id = crypto.randomUUID()
 
@@ -140,16 +156,19 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
       await storage.saveManual(manual)
 
-      // Record for future time estimation
       await history.record({
         inputChars: text.length,
         durationMs: converted.usage.durationMs,
       })
 
-      res.status(201).json({ ...manual, usage: converted.usage })
+      send({ type: 'done', manual: { ...manual, usage: converted.usage } })
+      res.end()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      if (message.includes('claude CLI failed')) {
+      if (res.headersSent) {
+        res.write(JSON.stringify({ type: 'error', message }) + '\n')
+        res.end()
+      } else if (message.includes('claude CLI failed')) {
         res.status(503).json({ error: 'Claude CLI is not available. Install it with: npm install -g @anthropic-ai/claude-code' })
       } else {
         res.status(500).json({ error: message })

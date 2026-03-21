@@ -117,9 +117,14 @@ function sumUsage(usages: ClaudeUsage[]): ClaudeUsage {
   }), { inputTokens: 0, outputTokens: 0, costUsd: 0, durationMs: 0 })
 }
 
+export interface ConvertOptions {
+  onChunkProgress?: (chunk: number, totalChunks: number) => void
+}
+
 export async function convertToManual(
   rawText: string,
   fileName: string,
+  options?: ConvertOptions,
 ): Promise<ConvertedManual> {
   // Small enough for a single call
   if (rawText.length <= CHUNK_THRESHOLD) {
@@ -150,6 +155,7 @@ export async function convertToManual(
   const allSections: ManualSection[] = []
 
   for (let i = 0; i < chunks.length; i++) {
+    options?.onChunkProgress?.(i + 1, chunks.length)
     const chunkPrompt = buildChunkPrompt(chunks[i], fileName, i, chunks.length)
     const chunkResult = await runClaude(chunkPrompt)
     usages.push(chunkResult.usage)

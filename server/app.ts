@@ -15,6 +15,7 @@ import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './li
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { createManual } from '../src/types/index'
 import type { StudioData, Manual } from '../src/types/index'
+import { multerErrorHandler, errorHandler } from './lib/error-handler'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
 
@@ -480,6 +481,10 @@ export async function createApp(storage: Storage, dataDir?: string) {
     const data = await storage.exportAll()
     res.json(data)
   })
+
+  // Error handling — must be last
+  app.use(multerErrorHandler)
+  app.use(errorHandler)
 
   return app
 }

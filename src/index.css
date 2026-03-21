@@ -852,31 +852,34 @@ body {
 .toc-level-2 { padding-left: 12px; }
 .toc-level-3 { padding-left: 24px; }
 
-.toc-section-toggle {
+.toc-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  width: 100%;
-  background: none;
-  border: none;
-  text-align: left;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text);
-  cursor: pointer;
-  border-radius: 4px;
 }
 
-.toc-section-toggle:hover {
+.toc-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-muted);
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.toc-toggle:hover {
   color: var(--text-h);
   background: var(--bg-hover);
 }
 
 .toc-section-arrow {
-  font-size: 10px;
+  font-size: 14px;
   transition: transform 0.2s ease;
-  flex-shrink: 0;
 }
 
 .toc-section-arrow.collapsed {
@@ -886,7 +889,7 @@ body {
 .toc-section-children {
   overflow: hidden;
   transition: max-height 0.25s ease, opacity 0.2s ease;
-  max-height: 500px;
+  max-height: 1000px;
   opacity: 1;
 }
 
@@ -896,8 +899,7 @@ body {
 }
 
 .toc-link {
-  display: block;
-  width: 100%;
+  flex: 1;
   background: none;
   border: none;
   text-align: left;

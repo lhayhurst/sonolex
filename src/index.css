@@ -818,7 +818,9 @@ body {
 
 /* Table of contents sidebar */
 .studio-toc {
-  width: 200px;
+  width: min-content;
+  min-width: 180px;
+  max-width: 280px;
   flex-shrink: 0;
   overflow-y: auto;
   position: sticky;
@@ -850,6 +852,49 @@ body {
 .toc-level-2 { padding-left: 12px; }
 .toc-level-3 { padding-left: 24px; }
 
+.toc-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.toc-section-toggle:hover {
+  color: var(--text-h);
+  background: var(--bg-hover);
+}
+
+.toc-section-arrow {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toc-section-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.toc-section-children {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  max-height: 500px;
+  opacity: 1;
+}
+
+.toc-section-children.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
 .toc-link {
   display: block;
   width: 100%;
@@ -861,9 +906,6 @@ body {
   color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: color var(--transition-speed);
 }
 

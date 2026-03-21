@@ -36,8 +36,33 @@ function extractToc(markdown: string): TocEntry[] {
   return entries
 }
 
+interface TocSection {
+  entry: TocEntry
+  children: TocEntry[]
+}
+
+function groupTocSections(entries: TocEntry[]): TocSection[] {
+  const sections: TocSection[] = []
+  let current: TocSection | null = null
+
+  for (const entry of entries) {
+    if (entry.level === 1) {
+      current = { entry, children: [] }
+      sections.push(current)
+    } else if (current) {
+      current.children.push(entry)
+    } else {
+      // Orphan heading before first h1
+      sections.push({ entry, children: [] })
+    }
+  }
+  return sections
+}
+
 function TocSidebar({ entries }: { entries: TocEntry[] }) {
   const [activeId, setActiveId] = useState<string>('')
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
+  const sections = useMemo(() => groupTocSections(entries), [entries])
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return
@@ -68,20 +93,65 @@ function TocSidebar({ entries }: { entries: TocEntry[] }) {
     }
   }
 
+  function toggleSection(id: string) {
+    setCollapsedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   return (
     <nav className="studio-toc">
       <div className="studio-toc-title">On this page</div>
       <ul>
-        {entries.map(entry => (
-          <li key={entry.id} className={`toc-level-${entry.level}`}>
-            <button
-              className={`toc-link${activeId === entry.id ? ' active' : ''}`}
-              onClick={() => handleClick(entry.id)}
-            >
-              {entry.text}
-            </button>
-          </li>
-        ))}
+        {sections.map(section => {
+          const isCollapsed = collapsedSections.has(section.entry.id)
+          const hasChildren = section.children.length > 0
+
+          return (
+            <li key={section.entry.id}>
+              {hasChildren ? (
+                <button
+                  className="toc-section-toggle"
+                  onClick={() => toggleSection(section.entry.id)}
+                >
+                  <span className={`toc-section-arrow${isCollapsed ? ' collapsed' : ''}`}>▾</span>
+                  <span
+                    className={activeId === section.entry.id ? 'toc-active-text' : ''}
+                    onClick={e => { e.stopPropagation(); handleClick(section.entry.id) }}
+                  >
+                    {section.entry.text}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  className={`toc-link${activeId === section.entry.id ? ' active' : ''}`}
+                  onClick={() => handleClick(section.entry.id)}
+                >
+                  {section.entry.text}
+                </button>
+              )}
+              {hasChildren && (
+                <div className={`toc-section-children${isCollapsed ? ' collapsed' : ''}`}>
+                  <ul>
+                    {section.children.map(child => (
+                      <li key={child.id} className={`toc-level-${child.level}`}>
+                        <button
+                          className={`toc-link${activeId === child.id ? ' active' : ''}`}
+                          onClick={() => handleClick(child.id)}
+                        >
+                          {child.text}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </nav>
   )

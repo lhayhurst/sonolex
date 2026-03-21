@@ -1,8 +1,120 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
 
 type ViewMode = 'view' | 'edit'
+
+interface TocEntry {
+  id: string
+  text: string
+  level: number
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+}
+
+function extractToc(markdown: string): TocEntry[] {
+  const entries: TocEntry[] = []
+  const lines = markdown.split('\n')
+  for (const line of lines) {
+    const match = line.match(/^(#{1,3})\s+(.+)$/)
+    if (match) {
+      entries.push({
+        id: slugify(match[2]),
+        text: match[2].replace(/\*\*/g, ''),
+        level: match[1].length,
+      })
+    }
+  }
+  return entries
+}
+
+function TocSidebar({ entries }: { entries: TocEntry[] }) {
+  const [activeId, setActiveId] = useState<string>('')
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return
+
+    const observer = new IntersectionObserver(
+      (observerEntries) => {
+        for (const entry of observerEntries) {
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.id)
+          }
+        }
+      },
+      { rootMargin: '-80px 0px -60% 0px' }
+    )
+
+    for (const tocEntry of entries) {
+      const el = document.getElementById(tocEntry.id)
+      if (el) observer.observe(el)
+    }
+
+    return () => observer.disconnect()
+  }, [entries])
+
+  function handleClick(id: string) {
+    const el = document.getElementById(id)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  return (
+    <nav className="studio-toc">
+      <div className="studio-toc-title">On this page</div>
+      <ul>
+        {entries.map(entry => (
+          <li key={entry.id} className={`toc-level-${entry.level}`}>
+            <button
+              className={`toc-link${activeId === entry.id ? ' active' : ''}`}
+              onClick={() => handleClick(entry.id)}
+            >
+              {entry.text}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+function createHeadingComponents(): Partial<Components> {
+  function makeHeading(level: 1 | 2 | 3) {
+    const Tag = `h${level}` as const
+    return function HeadingComponent(props: React.HTMLAttributes<HTMLHeadingElement>) {
+      const text = getTextFromChildren(props.children)
+      const id = slugify(text)
+      return <Tag id={id} {...props} />
+    }
+  }
+
+  return {
+    h1: makeHeading(1),
+    h2: makeHeading(2),
+    h3: makeHeading(3),
+  }
+}
+
+function getTextFromChildren(children: React.ReactNode): string {
+  if (typeof children === 'string') return children
+  if (Array.isArray(children)) return children.map(getTextFromChildren).join('')
+  if (children && typeof children === 'object' && 'props' in children) {
+    return getTextFromChildren((children as React.ReactElement).props.children)
+  }
+  return ''
+}
+
+const remarkPlugins = [remarkGfm]
+const headingComponents = createHeadingComponents()
 
 export function StudioPage() {
   const [content, setContent] = useState<string | null>(null)
@@ -11,6 +123,8 @@ export function StudioPage() {
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const tocEntries = useMemo(() => content ? extractToc(content) : [], [content])
 
   const loadDoc = useCallback(async () => {
     try {
@@ -151,8 +265,11 @@ export function StudioPage() {
           </button>
         </div>
       </div>
-      <div className="studio-doc">
-        <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
+      <div className="studio-body">
+        <div className="studio-doc">
+          <Markdown remarkPlugins={remarkPlugins} components={headingComponents}>{content}</Markdown>
+        </div>
+        {tocEntries.length > 0 && <TocSidebar entries={tocEntries} />}
       </div>
     </div>
   )

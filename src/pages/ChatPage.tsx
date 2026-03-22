@@ -230,7 +230,6 @@ export function ChatPage() {
             onPaste={handlePaste}
             placeholder={pendingImage ? 'Add a message about this image...' : 'Ask about your gear...'}
             rows={1}
-            disabled={sending}
           />
           <button
             className="chat-send"

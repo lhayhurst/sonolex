@@ -1,7 +1,7 @@
-import type { Manual } from '../../src/types/index'
+import type { Manual, CheatSheet } from '../../src/types/index'
 
-export function buildSystemPrompt(manuals: Manual[], studioDocPath?: string): string {
-  if (manuals.length === 0) {
+export function buildSystemPrompt(manuals: Manual[], studioDocPath?: string, cheatsheets?: CheatSheet[]): string {
+  if (manuals.length === 0 && (!cheatsheets || cheatsheets.length === 0)) {
     return `You are a music studio assistant. The user has no manuals uploaded yet. Help them get started by suggesting they upload their equipment manuals.`
   }
 
@@ -17,9 +17,14 @@ Sections:
 ${sectionList}`
   }).join('\n\n')
 
+  const cheatsheetSummaries = cheatsheets && cheatsheets.length > 0
+    ? '\n\nThe user also has these cheat sheets (quick references they\'ve created):\n' +
+      cheatsheets.map(cs => `- "${cs.title}" [${cs.category}] tags: ${cs.tags.join(', ')}`).join('\n')
+    : ''
+
   return `You are a music studio assistant helping the user understand and connect their equipment. You have knowledge of the following gear from their uploaded manuals:
 
-${manualSummaries}
+${manualSummaries}${cheatsheetSummaries}
 
 When the user asks about a specific device, you may receive the full manual content for that device in the message. Use it to give detailed, accurate answers about MIDI CCs, signal routing, specifications, and configuration.
 
@@ -48,6 +53,18 @@ export function findRelevantManuals(message: string, manuals: Manual[]): Manual[
   })
 }
 
+export function findRelevantCheatSheets(message: string, cheatsheets: CheatSheet[]): CheatSheet[] {
+  const lower = message.toLowerCase()
+
+  return cheatsheets.filter(cs => {
+    // Match against title words and tags
+    const titleWords = cs.title.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+    const tagMatch = cs.tags.some(tag => lower.includes(tag.toLowerCase()))
+    const titleMatch = titleWords.some(word => lower.includes(word))
+    return tagMatch || titleMatch
+  })
+}
+
 export function buildManualContext(manuals: Manual[]): string {
   return manuals.map(m => {
     const sections = m.sections
@@ -56,4 +73,10 @@ export function buildManualContext(manuals: Manual[]): string {
 
     return `--- Manual: ${m.title} ---\n\n${sections}`
   }).join('\n\n')
+}
+
+export function buildCheatSheetContext(cheatsheets: CheatSheet[]): string {
+  return cheatsheets.map(cs =>
+    `--- Cheat Sheet: ${cs.title} ---\n\n${cs.content}`
+  ).join('\n\n')
 }

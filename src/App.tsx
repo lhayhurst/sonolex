@@ -4,6 +4,7 @@ import { AppShell } from './components/layout/AppShell'
 import { SetupScreen } from './components/setup/SetupScreen'
 import { ManualsPage } from './pages/ManualsPage'
 import { ChatPage } from './pages/ChatPage'
+import { CheatSheetsPage } from './pages/CheatSheetsPage'
 import { StudioPage } from './pages/StudioPage'
 import { AboutPage } from './pages/AboutPage'
 
@@ -41,6 +42,7 @@ function App() {
         <Route path="/manuals" element={<ManualsPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:sessionId" element={<ChatPage />} />
+        <Route path="/cheatsheets" element={<CheatSheetsPage />} />
         <Route path="/studio" element={<StudioPage />} />
         <Route path="/about" element={<AboutPage />} />
       </Route>

@@ -36,9 +36,10 @@ describe('Sidebar', () => {
     expect(screen.getByText('sonolex')).toBeInTheDocument()
   })
 
-  it('renders navigation links for Manuals, Studio, About', () => {
+  it('renders navigation links for Manuals, Cheat Sheets, Studio, About', () => {
     renderSidebar()
     expect(screen.getByRole('link', { name: /manuals/i })).toHaveAttribute('href', '/manuals')
+    expect(screen.getByRole('link', { name: /cheat sheets/i })).toHaveAttribute('href', '/cheatsheets')
     expect(screen.getByRole('link', { name: /studio/i })).toHaveAttribute('href', '/studio')
     expect(screen.getByRole('link', { name: /about/i })).toHaveAttribute('href', '/about')
   })

@@ -67,6 +67,25 @@ export interface Manual {
   pdfPath?: string
 }
 
+// === Cheat Sheets ===
+
+export const CHEAT_SHEET_CATEGORIES = [
+  'midi-map', 'signal-routing', 'shortcuts', 'troubleshooting',
+  'preset-notes', 'checklist', 'quick-reference', 'other',
+] as const
+
+export type CheatSheetCategory = typeof CHEAT_SHEET_CATEGORIES[number]
+
+export interface CheatSheet {
+  id: string
+  title: string
+  content: string
+  category: CheatSheetCategory
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ChatSessionInfo {
   id: string
   name: string
@@ -139,6 +158,22 @@ export function createManual(params: {
   pdfPath?: string
 }): Manual {
   return { ...params }
+}
+
+export function createCheatSheet(params: {
+  id: string
+  title: string
+  content: string
+  category: CheatSheetCategory
+  tags?: string[]
+}): CheatSheet {
+  const now = new Date().toISOString()
+  return {
+    ...params,
+    tags: params.tags ?? [],
+    createdAt: now,
+    updatedAt: now,
+  }
 }
 
 export function createStudioData(params: {

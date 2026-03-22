@@ -11,10 +11,10 @@ import { isClaudeAvailable } from './lib/claude-cli'
 import { ConversionHistory } from './lib/conversion-history'
 import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
-import { buildSystemPrompt, findRelevantManuals, buildManualContext } from './lib/studio-prompt'
+import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevantCheatSheets, buildCheatSheetContext } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
-import { createManual } from '../src/types/index'
-import type { StudioData, Manual } from '../src/types/index'
+import { createManual, createCheatSheet } from '../src/types/index'
+import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
@@ -92,6 +92,44 @@ export async function createApp(storage: Storage, dataDir?: string) {
     } catch {
       res.status(404).json({ error: 'PDF not found' })
     }
+  })
+
+  // --- Cheat Sheets ---
+
+  app.get('/api/cheatsheets', async (_req, res) => {
+    const sheets = await storage.listCheatSheets()
+    res.json(sheets)
+  })
+
+  app.get('/api/cheatsheets/:id', async (req, res) => {
+    const sheet = await storage.loadCheatSheet(req.params.id)
+    if (!sheet) {
+      res.status(404).json({ error: 'Cheat sheet not found' })
+      return
+    }
+    res.json(sheet)
+  })
+
+  app.post('/api/cheatsheets', async (req, res) => {
+    const sheet = req.body as CheatSheet
+    await storage.saveCheatSheet(sheet)
+    res.status(201).json(sheet)
+  })
+
+  app.put('/api/cheatsheets/:id', async (req, res) => {
+    const existing = await storage.loadCheatSheet(req.params.id)
+    if (!existing) {
+      res.status(404).json({ error: 'Cheat sheet not found' })
+      return
+    }
+    const updated = { ...existing, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() }
+    await storage.saveCheatSheet(updated)
+    res.json(updated)
+  })
+
+  app.delete('/api/cheatsheets/:id', async (req, res) => {
+    await storage.deleteCheatSheet(req.params.id)
+    res.status(204).send()
   })
 
   // PDF pre-flight: extract text and estimate conversion time
@@ -401,9 +439,10 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
     try {
       const manuals = await storage.listManuals()
+      const cheatsheets = await storage.listCheatSheets()
       const currentStudioDoc = await studioDoc.load()
       const studioFilePath = join(resolvedDataDir, 'studio.md')
-      const systemPrompt = buildSystemPrompt(manuals, currentStudioDoc ? studioFilePath : undefined)
+      const systemPrompt = buildSystemPrompt(manuals, currentStudioDoc ? studioFilePath : undefined, cheatsheets)
 
       // Build enriched message with context
       let enrichedMessage = message
@@ -417,6 +456,19 @@ export async function createApp(storage: Storage, dataDir?: string) {
       const relevant = findRelevantManuals(message, manuals)
       if (relevant.length > 0) {
         enrichedMessage += '\n\n' + buildManualContext(relevant)
+      }
+
+      // Inject relevant cheat sheet content
+      const relevantSheets = findRelevantCheatSheets(message, cheatsheets)
+      if (relevantSheets.length > 0) {
+        enrichedMessage += '\n\n' + buildCheatSheetContext(relevantSheets)
+      }
+
+      // If user wants to save a cheat sheet, tell Claude where and how
+      const wantsCheatSheet = /\b(save|create|make)\b.*\b(cheat\s*sheet|quick\s*ref|reference\s*card)\b/i.test(message)
+      if (wantsCheatSheet) {
+        const cheatsheetsDir = join(resolvedDataDir, 'cheatsheets')
+        enrichedMessage += `\n\n--- Cheat Sheet Instructions ---\nTo save a cheat sheet, use the Write tool to create a JSON file in: ${cheatsheetsDir}\nThe file should be named with a UUID (e.g. "abc123.json") and contain:\n{"id":"<same-uuid>","title":"...","content":"<markdown>","category":"<one of: midi-map, signal-routing, shortcuts, troubleshooting, preset-notes, checklist, quick-reference, other>","tags":["tag1","tag2"],"createdAt":"<iso-date>","updatedAt":"<iso-date>"}\nAfter creating it, tell the user it's saved.`
       }
 
       // If user wants to update the studio, tell Claude to edit the file directly

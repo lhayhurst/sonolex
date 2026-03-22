@@ -17,7 +17,7 @@ import { createManual, createCheatSheet } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } })
 
 export async function createApp(storage: Storage, dataDir?: string) {
   const resolvedDataDir = resolve(dataDir ?? '.')

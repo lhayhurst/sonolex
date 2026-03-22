@@ -8,7 +8,7 @@ import multer from 'multer'
 export function multerErrorHandler(err: Error, _req: Request, res: Response, next: NextFunction): void {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      res.status(413).json({ error: 'File too large. Maximum size is 50MB.' })
+      res.status(413).json({ error: 'File too large. Maximum size is 100MB.' })
       return
     }
     res.status(400).json({ error: err.message })

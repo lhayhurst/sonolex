@@ -154,13 +154,29 @@ export async function convertToManual(
   const chunks = splitIntoChunks(rawText)
   const allSections: ManualSection[] = []
 
-  for (let i = 0; i < chunks.length; i++) {
-    options?.onChunkProgress?.(i + 1, chunks.length)
-    const chunkPrompt = buildChunkPrompt(chunks[i], fileName, i, chunks.length)
+  async function convertChunk(text: string, index: number, total: number, depth: number): Promise<void> {
+    const chunkPrompt = buildChunkPrompt(text, fileName, index, total)
     const chunkResult = await runClaude(chunkPrompt)
     usages.push(chunkResult.usage)
-    const chunkData = parseJsonResponse(chunkResult.text) as { sections: ManualSection[] }
-    allSections.push(...chunkData.sections)
+
+    try {
+      const chunkData = parseJsonResponse(chunkResult.text) as { sections: ManualSection[] }
+      allSections.push(...chunkData.sections)
+    } catch {
+      // If this chunk failed and we can split further, retry with smaller halves
+      if (depth < 2 && text.length > 5000) {
+        const halves = splitIntoChunks(text, Math.ceil(text.length / 2))
+        for (const half of halves) {
+          await convertChunk(half, index, total, depth + 1)
+        }
+      }
+      // If we can't split further, skip this chunk rather than failing the whole import
+    }
+  }
+
+  for (let i = 0; i < chunks.length; i++) {
+    options?.onChunkProgress?.(i + 1, chunks.length)
+    await convertChunk(chunks[i], i, chunks.length, 0)
   }
 
   return {

@@ -21,10 +21,11 @@ Works on **macOS** and **Linux**. On Linux, you may need to install Node.js via 
 
 ## Features
 
-- **Manual Browser** — Upload equipment PDFs, Claude extracts MIDI CCs, specs, and connection details into searchable sections
-- **Context-Aware Chat** — Multiple chat sessions, mention a device and Claude automatically loads that manual
-- **Living Studio Document** — Tell Claude how your gear connects, it builds and maintains your setup doc
-- **Local-First & Private** — Runs entirely on your machine, no cloud database, no accounts
+- **Import from PDFs or the Web** — Upload equipment PDFs or paste a docs URL. Claude crawls, extracts, and structures content into searchable sections. Handles large manuals automatically.
+- **Multi-Session Chat** — Multiple named chat sessions with full context. Paste images, type ahead while Claude thinks. Mention a device and Claude loads that manual.
+- **Cheat Sheets** — Quick references for custom MIDI maps, routing, shortcuts, troubleshooting. Create them manually or ask Claude to save one from chat.
+- **Living Studio Document** — Claude reads and edits your studio doc directly, with a navigable table of contents and collapsible sections.
+- **Local-First & Private** — Runs entirely on your machine, no cloud database, no accounts.
 
 ## How it works
 

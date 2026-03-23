@@ -538,9 +538,11 @@
             <div class="preview-sidebar">
               <div class="preview-sidebar-brand">sonolex</div>
               <div class="preview-nav-item active">Manuals</div>
-              <div class="preview-nav-item">Chat</div>
+              <div class="preview-nav-item">Cheat Sheets</div>
               <div class="preview-nav-item">Studio</div>
-              <div class="preview-nav-item">About</div>
+              <div class="preview-nav-item" style="font-size:11px;margin-top:12px;color:var(--text-muted)">Chats</div>
+              <div class="preview-nav-item" style="font-size:11px">Studio routing...</div>
+              <div class="preview-nav-item" style="font-size:11px">MIDI setup...</div>
             </div>
             <div class="preview-content">
               <h3>Manuals</h3>
@@ -572,18 +574,18 @@
       <div class="workflow-steps">
         <div class="workflow-step">
           <div class="step-number">1</div>
-          <h3>Upload Manuals</h3>
-          <p>Drop your equipment PDFs. Claude reads them and extracts every MIDI CC, spec, and connection detail into searchable sections.</p>
+          <h3>Import Manuals</h3>
+          <p>Drop equipment PDFs or paste a docs URL. Claude crawls, extracts, and structures every MIDI CC, spec, and connection detail — even from 80MB manuals.</p>
         </div>
         <div class="workflow-step">
           <div class="step-number">2</div>
-          <h3>Chat</h3>
-          <p>Ask anything about your gear. "What are the MIDI CCs for the Clean?" Claude knows your manuals and gives specific, technical answers.</p>
+          <h3>Chat & Create</h3>
+          <p>Ask anything about your gear across multiple chat sessions. Paste images, save cheat sheets from conversations, and get specific technical answers.</p>
         </div>
         <div class="workflow-step">
           <div class="step-number">3</div>
           <h3>Build Your Studio</h3>
-          <p>Tell Claude how your gear connects. It builds a comprehensive setup document — signal flow, MIDI routing, gain staging, everything.</p>
+          <p>Tell Claude how your gear connects. It reads and edits your studio doc directly — with a navigable table of contents you can browse and print.</p>
         </div>
       </div>
     </div>
@@ -596,18 +598,23 @@
       <div class="feature-grid">
         <div class="feature-card">
           <div class="feature-icon">📋</div>
-          <h3>AI-Powered Manual Conversion</h3>
-          <p>Claude structures your raw PDFs into titled, summarized, section-organized documents. MIDI CC maps, specs, and routing details preserved.</p>
+          <h3>Import from PDFs or the Web</h3>
+          <p>Upload equipment PDFs or paste a docs URL — Claude crawls the site, extracts content, and structures it into searchable sections. Handles large manuals by chunking automatically.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">💬</div>
-          <h3>Context-Aware Chat</h3>
-          <p>Mention a device and Claude automatically loads that manual. Ask about connections, troubleshoot issues, or plan your signal chain.</p>
+          <h3>Multi-Session Chat</h3>
+          <p>Multiple named chat sessions, each with full context. Mention a device and Claude loads that manual. Paste images directly into chat. Type ahead while Claude thinks.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔌</div>
           <h3>Living Studio Document</h3>
-          <p>Your studio setup evolves through conversation. "Add the Monolit" — Claude asks how it's connected, then updates your doc.</p>
+          <p>Your studio setup evolves through conversation. Claude reads and edits your studio doc directly — with a navigable table of contents and collapsible sections.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📌</div>
+          <h3>Cheat Sheets</h3>
+          <p>Quick references for custom MIDI maps, routing scenarios, shortcuts, and troubleshooting. Create them manually or ask Claude to save one from chat. Filter by category and tags.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔒</div>
@@ -616,13 +623,8 @@
         </div>
         <div class="feature-card">
           <div class="feature-icon">📊</div>
-          <h3>Smart Progress Tracking</h3>
-          <p>Conversion time estimates that improve with each upload. Global status bar persists across pages so you never lose track.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🧪</div>
-          <h3>Built with TDD</h3>
-          <p>181 tests across 23 files. Every feature built test-first using Dan North's CUPID framework. Red-green-refactor, every time.</p>
+          <h3>Real-Time Progress</h3>
+          <p>Live streaming progress for every import — page-by-page crawl counts, chunk-by-chunk conversion. No more staring at indeterminate spinners.</p>
         </div>
       </div>
     </div>

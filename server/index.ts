@@ -16,20 +16,27 @@ process.on('unhandledRejection', (reason) => {
 })
 
 async function main() {
+  const t0 = Date.now()
+  console.log('Starting Sonolex...')
+
   const storage = new Storage(DATA_DIR)
   await storage.init()
+  console.log(`  Storage init: ${Date.now() - t0}ms`)
 
+  const t1 = Date.now()
   const available = await isClaudeAvailable()
-  if (available) {
-    console.log('Claude CLI available')
-  } else {
+  console.log(`  Claude CLI check: ${Date.now() - t1}ms (${available ? 'available' : 'not found'})`)
+
+  if (!available) {
     console.warn('Claude CLI not found — install with: npm install -g @anthropic-ai/claude-code')
   }
 
+  const t2 = Date.now()
   const app = await createApp(storage, DATA_DIR)
+  console.log(`  App init: ${Date.now() - t2}ms`)
 
   app.listen(PORT, () => {
-    console.log(`Sonolex server running at http://localhost:${PORT}`)
+    console.log(`Sonolex ready in ${Date.now() - t0}ms — http://localhost:${PORT}`)
     console.log(`Data directory: ${DATA_DIR}`)
   })
 }

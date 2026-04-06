@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { ChatToc } from '../components/chat/ChatToc'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -11,9 +12,12 @@ interface ChatMessage {
 
 const remarkPlugins = [remarkGfm]
 
-const ChatMessageItem = memo(function ChatMessageItem({ msg }: { msg: ChatMessage }) {
+const ChatMessageItem = memo(function ChatMessageItem({ msg, index }: { msg: ChatMessage; index: number }) {
   return (
-    <div className={`chat-message chat-message-${msg.role}`}>
+    <div
+      className={`chat-message chat-message-${msg.role}`}
+      {...(msg.role === 'user' ? { 'data-msg-index': index } : {})}
+    >
       <div className="chat-message-content">
         {msg.imageUrl && (
           <img src={msg.imageUrl} alt="Pasted image" className="chat-image" />
@@ -39,7 +43,7 @@ const ChatMessageList = memo(function ChatMessageList({
         <p className="chat-empty">Ask about your gear, connections, or studio setup.</p>
       )}
       {messages.map((msg, i) => (
-        <ChatMessageItem key={i} msg={msg} />
+        <ChatMessageItem key={i} msg={msg} index={i} />
       ))}
       {sending && (
         <div className="chat-message chat-message-assistant">
@@ -62,6 +66,8 @@ export function ChatPage() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null)
+  const [deviceNames, setDeviceNames] = useState<string[]>([])
+  const [tocCollapsed, setTocCollapsed] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -78,6 +84,14 @@ export function ChatPage() {
         .catch(() => {})
     }
   }, [sessionId, navigate])
+
+  // Load device names for TOC topic extraction
+  useEffect(() => {
+    fetch('/api/manuals')
+      .then(res => res.ok ? res.json() : [])
+      .then((manuals: { title: string }[]) => setDeviceNames(manuals.map(m => m.title)))
+      .catch(() => {})
+  }, [])
 
   const loadHistory = useCallback(async () => {
     if (!sessionId) return
@@ -208,38 +222,48 @@ export function ChatPage() {
 
   return (
     <div className="chat-page">
-      <div className="chat-messages">
-        <ChatMessageList messages={messages} sending={sending} />
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="chat-input-bar">
-        {pendingImage && (
-          <div className="chat-image-preview">
-            <img src={pendingImage.previewUrl} alt="To send" />
-            <button className="chat-image-remove" onClick={removePendingImage} aria-label="Remove image">×</button>
+      <div className="chat-body">
+        <div className="chat-main">
+          <div className="chat-messages">
+            <ChatMessageList messages={messages} sending={sending} />
+            <div ref={messagesEndRef} />
           </div>
-        )}
-        <div className="chat-input-row">
-          <textarea
-            ref={textareaRef}
-            className="chat-input"
-            value={input}
-            onChange={e => { setInput(e.target.value); autoGrow() }}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={pendingImage ? 'Add a message about this image...' : 'Ask about your gear...'}
-            rows={1}
-          />
-          <button
-            className="chat-send"
-            onClick={handleSend}
-            disabled={(!input.trim() && !pendingImage) || sending}
-            aria-label="Send"
-          >
-            Send
-          </button>
+
+          <div className="chat-input-bar">
+            {pendingImage && (
+              <div className="chat-image-preview">
+                <img src={pendingImage.previewUrl} alt="To send" />
+                <button className="chat-image-remove" onClick={removePendingImage} aria-label="Remove image">×</button>
+              </div>
+            )}
+            <div className="chat-input-row">
+              <textarea
+                ref={textareaRef}
+                className="chat-input"
+                value={input}
+                onChange={e => { setInput(e.target.value); autoGrow() }}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder={pendingImage ? 'Add a message about this image...' : 'Ask about your gear...'}
+                rows={1}
+              />
+              <button
+                className="chat-send"
+                onClick={handleSend}
+                disabled={(!input.trim() && !pendingImage) || sending}
+                aria-label="Send"
+              >
+                Send
+              </button>
+            </div>
+          </div>
         </div>
+        <ChatToc
+          messages={messages}
+          deviceNames={deviceNames}
+          collapsed={tocCollapsed}
+          onToggle={() => setTocCollapsed(c => !c)}
+        />
       </div>
     </div>
   )

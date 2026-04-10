@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractTopic, buildChatToc } from './topic-extractor'
+import { extractTopic, extractAssistantLabel, buildChatToc } from './topic-extractor'
 
 const deviceNames = ['Drop', 'Fireface UCX II', 'Artemis', 'Monolit', 'Midihub', 'Move']
 
@@ -50,30 +50,71 @@ describe('extractTopic', () => {
   })
 })
 
-describe('buildChatToc', () => {
-  const msgs = (contents: string[]) =>
-    contents.flatMap(c => [
-      { role: 'user' as const, content: c },
-      { role: 'assistant' as const, content: 'Response here.' },
-    ])
-
-  it('creates one entry per user message', () => {
-    const toc = buildChatToc(msgs(['How do I connect the Drop?', 'What about the Artemis?']), deviceNames)
-    expect(toc).toHaveLength(2)
-    expect(toc[0].label).toContain('Drop')
-    expect(toc[1].label).toContain('Artemis')
+describe('extractAssistantLabel', () => {
+  it('uses the first markdown heading', () => {
+    const response = '# MIDI CC Map for the Drop\n\nHere are the CCs...'
+    expect(extractAssistantLabel(response)).toBe('MIDI CC Map for the Drop')
   })
 
-  it('groups consecutive messages with the same device', () => {
-    const toc = buildChatToc(msgs([
-      'How do I connect the Drop?',
-      'What are the Drop MIDI CCs?',
-      'Now tell me about the Artemis',
+  it('uses h2 heading if no h1', () => {
+    const response = '## Setting Up Your Signal Chain\n\nFirst, connect...'
+    expect(extractAssistantLabel(response)).toBe('Setting Up Your Signal Chain')
+  })
+
+  it('falls back to first sentence when no heading', () => {
+    const response = 'The Artemis connects via MIDI out to the Midihub. You can then route...'
+    expect(extractAssistantLabel(response)).toBe('The Artemis connects via MIDI out to the Midihub')
+  })
+
+  it('truncates long first sentences', () => {
+    const response = 'This is an extremely long first sentence that goes on and on about various topics and should be truncated at some reasonable point to fit in the sidebar.'
+    const label = extractAssistantLabel(response)
+    expect(label.length).toBeLessThanOrEqual(63) // 60 + '...'
+  })
+
+  it('strips markdown formatting from the label', () => {
+    const response = 'The **Fireface UCX II** has _excellent_ `low-latency` performance.'
+    expect(extractAssistantLabel(response)).toBe('The Fireface UCX II has excellent low-latency performance')
+  })
+
+  it('handles empty response', () => {
+    expect(extractAssistantLabel('')).toBe('')
+  })
+
+  it('skips blank lines to find first real content', () => {
+    const response = '\n\n\nThe Drop encoder mapping is straightforward.'
+    expect(extractAssistantLabel(response)).toBe('The Drop encoder mapping is straightforward')
+  })
+})
+
+describe('buildChatToc', () => {
+  function msgPairs(pairs: [string, string][]) {
+    return pairs.flatMap(([user, assistant]) => [
+      { role: 'user' as const, content: user },
+      { role: 'assistant' as const, content: assistant },
+    ])
+  }
+
+  it('labels entries from assistant responses, not user messages', () => {
+    const toc = buildChatToc(msgPairs([
+      ['How do I connect the Drop?', '# Connecting the Drop\n\nPlug it in via USB...'],
+      ['What about the Artemis?', 'The Artemis uses MIDI DIN connections.'],
     ]), deviceNames)
     expect(toc).toHaveLength(2)
-    expect(toc[0].label).toContain('Drop')
+    expect(toc[0].label).toBe('Connecting the Drop')
+    expect(toc[1].label).toBe('The Artemis uses MIDI DIN connections')
+  })
+
+  it('still groups consecutive messages about the same device', () => {
+    const toc = buildChatToc(msgPairs([
+      ['How do I connect the Drop?', '# Drop Connections\n\nUSB-C...'],
+      ['What are the Drop MIDI CCs?', '## Drop MIDI CC Map\n\nCC 1: Mod...'],
+      ['Now tell me about the Artemis', 'The Artemis is a polysynth.'],
+    ]), deviceNames)
+    expect(toc).toHaveLength(2)
+    expect(toc[0].label).toBe('Drop Connections')
     expect(toc[0].messageCount).toBe(2)
-    expect(toc[1].label).toContain('Artemis')
+    expect(toc[1].label).toBe('The Artemis is a polysynth')
     expect(toc[1].messageCount).toBe(1)
   })
 
@@ -88,17 +129,19 @@ describe('buildChatToc', () => {
     expect(toc).toEqual([])
   })
 
-  it('tracks correct message indices', () => {
-    const toc = buildChatToc(msgs([
-      'Connect the Drop',
-      'Now the Artemis',
+  it('points messageIndex to the assistant message, not the user message', () => {
+    const toc = buildChatToc(msgPairs([
+      ['Connect the Drop', 'Use USB-C to connect.'],
+      ['Now the Artemis', 'MIDI DIN out to Midihub.'],
     ]), deviceNames)
-    expect(toc[0].messageIndex).toBe(0)
-    expect(toc[1].messageIndex).toBe(2) // index 2 because each pair is 2 messages
+    expect(toc[0].messageIndex).toBe(1) // assistant message index
+    expect(toc[1].messageIndex).toBe(3)
   })
 
-  it('works with empty device names', () => {
-    const toc = buildChatToc(msgs(['How do I set up reverb?']), [])
+  it('falls back to user topic when assistant response is empty', () => {
+    const toc = buildChatToc(msgPairs([
+      ['How do I set up reverb?', ''],
+    ]), [])
     expect(toc).toHaveLength(1)
     expect(toc[0].label).toBeTruthy()
   })

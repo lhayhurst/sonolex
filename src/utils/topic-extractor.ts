@@ -7,6 +7,7 @@ export interface ChatTocEntry {
   label: string
   messageIndex: number
   messageCount: number
+  userDevice?: string
 }
 
 const ACTION_KEYWORDS = [
@@ -104,6 +105,46 @@ export function extractTopic(message: string, deviceNames: string[]): string {
   return trimmed.slice(0, 30).trim() + '...'
 }
 
+function stripMarkdownFormatting(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
+    .replace(/__(.+?)__/g, '$1')         // __bold__
+    .replace(/\*(.+?)\*/g, '$1')         // *italic*
+    .replace(/_(.+?)_/g, '$1')           // _italic_
+    .replace(/`(.+?)`/g, '$1')           // `code`
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')  // [links](url)
+}
+
+export function extractAssistantLabel(response: string): string {
+  if (!response.trim()) return ''
+
+  const lines = response.split('\n')
+
+  // Look for first markdown heading
+  for (const line of lines) {
+    const headingMatch = line.match(/^#{1,3}\s+(.+)/)
+    if (headingMatch) {
+      return stripMarkdownFormatting(headingMatch[1].trim())
+    }
+  }
+
+  // Fall back to first non-empty line as a sentence
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    const clean = stripMarkdownFormatting(trimmed)
+    // Extract first sentence (up to first period followed by space or end)
+    const sentenceMatch = clean.match(/^(.+?)\.\s/)
+    const label = sentenceMatch ? sentenceMatch[1] : clean.replace(/\.$/, '')
+
+    if (label.length <= 60) return label
+    return label.slice(0, 60).trim() + '...'
+  }
+
+  return ''
+}
+
 export function buildChatToc(messages: ChatMessage[], deviceNames: string[]): ChatTocEntry[] {
   const entries: ChatTocEntry[] = []
 
@@ -111,25 +152,27 @@ export function buildChatToc(messages: ChatMessage[], deviceNames: string[]): Ch
     const msg = messages[i]
     if (msg.role !== 'user') continue
 
-    const label = extractTopic(msg.content, deviceNames)
-    if (!label) continue
-
-    // Check if this should group with the previous entry
+    // Group by device from the user message
     const device = findDeviceName(msg.content, deviceNames)
     const prev = entries[entries.length - 1]
 
-    if (prev && device) {
-      const prevDevice = findDeviceName(
-        messages[prev.messageIndex]?.content ?? '',
-        deviceNames,
-      )
-      if (prevDevice && prevDevice.toLowerCase() === device.toLowerCase()) {
-        prev.messageCount++
-        continue
-      }
+    if (prev && device && prev.userDevice?.toLowerCase() === device.toLowerCase()) {
+      prev.messageCount++
+      continue
     }
 
-    entries.push({ label, messageIndex: i, messageCount: 1 })
+    // Label from assistant response (next message), fall back to user topic
+    const assistantMsg = messages[i + 1]
+    const assistantLabel = assistantMsg?.role === 'assistant'
+      ? extractAssistantLabel(assistantMsg.content)
+      : ''
+    const label = assistantLabel || extractTopic(msg.content, deviceNames)
+    if (!label) continue
+
+    // Point to the assistant message if it exists, otherwise the user message
+    const messageIndex = assistantMsg?.role === 'assistant' ? i + 1 : i
+
+    entries.push({ label, messageIndex, messageCount: 1, userDevice: device ?? undefined })
   }
 
   return entries

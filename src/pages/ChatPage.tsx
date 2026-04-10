@@ -18,7 +18,7 @@ const ChatMessageItem = memo(function ChatMessageItem({ msg, index }: { msg: Cha
   return (
     <div
       className={`chat-message chat-message-${msg.role}`}
-      {...(msg.role === 'user' ? { 'data-msg-index': index } : {})}
+      data-msg-index={index}
     >
       <div className="chat-message-content">
         {msg.imageUrl && (

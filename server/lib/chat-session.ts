@@ -1,5 +1,7 @@
 import { readFile, writeFile, unlink } from 'node:fs/promises'
 import { runClaude, type ClaudeResult, type ClaudeOptions } from './claude-cli'
+import { runClaudeStream } from './claude-stream'
+import type { ClaudeStreamEvent } from './claude-stream-parser'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -54,6 +56,49 @@ export class ChatSession {
     return result
   }
 
+  async sendStreaming(
+    claudeMessage: string,
+    systemPrompt: string,
+    displayMessage?: string,
+    extraOptions?: Partial<ClaudeOptions>,
+    imageUrl?: string,
+  ): Promise<{ stream: AsyncGenerator<ClaudeStreamEvent> }> {
+    const options: ClaudeOptions = {
+      systemPrompt: !this.sessionId ? systemPrompt : undefined,
+      resumeSessionId: this.sessionId,
+      ...extraOptions,
+    }
+
+    const session = this
+    const source = runClaudeStream(claudeMessage, options)
+
+    async function* wrapStream(): AsyncGenerator<ClaudeStreamEvent> {
+      let finalText = ''
+      let finalSessionId: string | undefined
+
+      for await (const event of source) {
+        if (event.type === 'result') {
+          finalText = event.text
+          finalSessionId = event.sessionId
+        }
+        yield event
+      }
+
+      if (finalSessionId) {
+        session.sessionId = finalSessionId
+      }
+
+      const messages = await session.getHistory()
+      const userMsg: ChatMessage = { role: 'user', content: displayMessage ?? claudeMessage }
+      if (imageUrl) userMsg.imageUrl = imageUrl
+      messages.push(userMsg)
+      messages.push({ role: 'assistant', content: finalText })
+      await session.saveHistory(messages)
+    }
+
+    return { stream: wrapStream() }
+  }
+
   async clear(): Promise<void> {
     this.sessionId = undefined
     try {
@@ -63,7 +108,7 @@ export class ChatSession {
     }
   }
 
-  private async saveHistory(messages: ChatMessage[]): Promise<void> {
+  async saveHistory(messages: ChatMessage[]): Promise<void> {
     await writeFile(
       this.historyPath,
       JSON.stringify({ sessionId: this.sessionId, messages }, null, 2),

@@ -425,7 +425,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
   })
 
   app.post('/api/chat/sessions/:id/messages', async (req, res) => {
-    const { message, imagePath } = req.body as { message?: string; imagePath?: string }
+    const { message, imagePath, deepThinking } = req.body as { message?: string; imagePath?: string; deepThinking?: boolean }
     if (!message) {
       res.status(400).json({ error: 'message is required' })
       return
@@ -482,6 +482,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
       const chatOptions = {
         allowedTools: ['Read', 'Edit', 'Write'],
         addDirs: [resolvedDataDir],
+        ...(deepThinking ? { effort: 'high' as const } : {}),
       }
 
       // Derive the serving URL for the image so it displays in chat history
@@ -491,15 +492,43 @@ export async function createApp(storage: Storage, dataDir?: string) {
         imageUrl = `/api/chat/images/${filename}`
       }
 
-      const result = await chatSession.send(enrichedMessage, systemPrompt, message, chatOptions, imageUrl)
+      const { stream } = await chatSession.sendStreaming(enrichedMessage, systemPrompt, message, chatOptions, imageUrl)
 
-      // Update the session's last message timestamp
+      res.setHeader('Content-Type', 'application/x-ndjson')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+      res.flushHeaders()
+
+      let finalText = ''
+      let finalThinking = ''
+      let finalUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0, durationMs: 0 }
+
+      for await (const event of stream) {
+        if (event.type === 'thinking') {
+          finalThinking += event.text
+          res.write(JSON.stringify({ type: 'thinking', text: event.text }) + '\n')
+        } else if (event.type === 'thinking_complete') {
+          // Full thinking from assistant summary — use if no incremental thinking arrived
+          if (!finalThinking) finalThinking = event.text
+          res.write(JSON.stringify({ type: 'thinking', text: event.text }) + '\n')
+        } else if (event.type === 'text') {
+          res.write(JSON.stringify({ type: 'text', text: event.text }) + '\n')
+        } else if (event.type === 'tool_use') {
+          res.write(JSON.stringify({ type: 'tool_use', toolName: event.toolName }) + '\n')
+        } else if (event.type === 'result') {
+          finalText = event.text
+          finalUsage = event.usage
+        }
+      }
       await sessionManager.updateLastMessageAt(req.params.id)
 
-      // Check if the studio doc was modified by comparing content
       const studioUpdated = wantsStudioUpdate && (await studioDoc.load()) !== currentStudioDoc
 
-      res.json({ text: result.text, usage: result.usage, studioUpdated })
+      res.write(JSON.stringify({
+        type: 'done', text: finalText, usage: finalUsage, studioUpdated,
+        thinking: finalThinking || undefined,
+      }) + '\n')
+      res.end()
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Chat failed'
       res.status(500).json({ error: errMsg })

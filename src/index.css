@@ -638,6 +638,38 @@ body {
   font-style: italic;
 }
 
+/* Collapsible thinking block */
+.chat-thinking {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.chat-thinking summary {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-offset, var(--bg-secondary));
+}
+
+.chat-thinking summary:hover {
+  color: var(--text-primary);
+}
+
+.chat-thinking-content {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* Markdown inside assistant messages */
 .chat-message-assistant .chat-message-content h1,
 .chat-message-assistant .chat-message-content h2,
@@ -721,6 +753,22 @@ body {
 .chat-input-row {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chat-deep-thinking-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.chat-deep-thinking-toggle input {
+  margin: 0;
 }
 
 /* Image in chat messages */

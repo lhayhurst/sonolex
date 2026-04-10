@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChatToc } from '../components/chat/ChatToc'
+import { parseNdjsonStream } from '../utils/ndjson-stream'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  thinking?: string
   imageUrl?: string
 }
 
@@ -22,6 +24,12 @@ const ChatMessageItem = memo(function ChatMessageItem({ msg, index }: { msg: Cha
         {msg.imageUrl && (
           <img src={msg.imageUrl} alt="Pasted image" className="chat-image" />
         )}
+        {msg.role === 'assistant' && msg.thinking && (
+          <details className="chat-thinking">
+            <summary>Thinking</summary>
+            <div className="chat-thinking-content">{msg.thinking}</div>
+          </details>
+        )}
         {msg.role === 'assistant'
           ? <Markdown remarkPlugins={remarkPlugins}>{msg.content}</Markdown>
           : msg.content}
@@ -30,16 +38,23 @@ const ChatMessageItem = memo(function ChatMessageItem({ msg, index }: { msg: Cha
   )
 })
 
+interface StreamingState {
+  thinking: string
+  text: string
+}
+
 const ChatMessageList = memo(function ChatMessageList({
   messages,
   sending,
+  streaming,
 }: {
   messages: ChatMessage[]
   sending: boolean
+  streaming: StreamingState | null
 }) {
   return (
     <>
-      {messages.length === 0 && (
+      {messages.length === 0 && !sending && (
         <p className="chat-empty">Ask about your gear, connections, or studio setup.</p>
       )}
       {messages.map((msg, i) => (
@@ -47,7 +62,19 @@ const ChatMessageList = memo(function ChatMessageList({
       ))}
       {sending && (
         <div className="chat-message chat-message-assistant">
-          <div className="chat-message-content chat-typing">Thinking...</div>
+          <div className="chat-message-content">
+            {streaming && streaming.thinking ? (
+              <details className="chat-thinking" open>
+                <summary>Thinking</summary>
+                <div className="chat-thinking-content">{streaming.thinking}</div>
+              </details>
+            ) : !streaming?.text ? (
+              <span className="chat-typing">Thinking...</span>
+            ) : null}
+            {streaming?.text && (
+              <Markdown remarkPlugins={remarkPlugins}>{streaming.text}</Markdown>
+            )}
+          </div>
         </div>
       )}
     </>
@@ -65,9 +92,11 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [streaming, setStreaming] = useState<StreamingState | null>(null)
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null)
   const [deviceNames, setDeviceNames] = useState<string[]>([])
   const [tocCollapsed, setTocCollapsed] = useState(false)
+  const [deepThinking, setDeepThinking] = useState(() => localStorage.getItem('sonolex-deep-thinking') !== 'false')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -157,18 +186,36 @@ export function ChatPage() {
     }
 
     setMessages(prev => [...prev, { role: 'user', content: userMessage, imageUrl }])
+    setStreaming({ thinking: '', text: '' })
 
     try {
       const res = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage, imagePath }),
+        body: JSON.stringify({ message: userMessage, imagePath, deepThinking }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        setMessages(prev => [...prev, { role: 'assistant', content: data.text }])
-      } else {
+      if (res.ok && res.body) {
+        let thinking = ''
+        let text = ''
+
+        for await (const event of parseNdjsonStream(res.body)) {
+          if (event.type === 'thinking') {
+            thinking += event.text as string
+            setStreaming({ thinking, text })
+          } else if (event.type === 'text') {
+            text += event.text as string
+            setStreaming({ thinking, text })
+          } else if (event.type === 'done') {
+            const finalThinking = thinking || (event.thinking as string) || ''
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: event.text as string,
+              thinking: finalThinking || undefined,
+            }])
+          }
+        }
+      } else if (!res.ok) {
         const data = await res.json()
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.error}` }])
       }
@@ -176,6 +223,7 @@ export function ChatPage() {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Error: Failed to connect to server' }])
     } finally {
       setSending(false)
+      setStreaming(null)
     }
   }
 
@@ -225,7 +273,7 @@ export function ChatPage() {
       <div className="chat-body">
         <div className="chat-main">
           <div className="chat-messages">
-            <ChatMessageList messages={messages} sending={sending} />
+            <ChatMessageList messages={messages} sending={sending} streaming={streaming} />
             <div ref={messagesEndRef} />
           </div>
 
@@ -237,6 +285,17 @@ export function ChatPage() {
               </div>
             )}
             <div className="chat-input-row">
+              <label className="chat-deep-thinking-toggle">
+                <input
+                  type="checkbox"
+                  checked={deepThinking}
+                  onChange={e => {
+                    setDeepThinking(e.target.checked)
+                    localStorage.setItem('sonolex-deep-thinking', String(e.target.checked))
+                  }}
+                />
+                Deep thinking
+              </label>
               <textarea
                 ref={textareaRef}
                 className="chat-input"

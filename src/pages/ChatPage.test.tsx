@@ -55,16 +55,29 @@ describe('ChatPage', () => {
     })
   })
 
-  it('sends a message to the session endpoint', async () => {
+  it('sends a message and streams NDJSON response with thinking', async () => {
+    function makeNdjsonResponse(events: Record<string, unknown>[]) {
+      const encoder = new TextEncoder()
+      const text = events.map(e => JSON.stringify(e)).join('\n') + '\n'
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(text))
+          controller.close()
+        },
+      })
+      return { ok: true, body, json: () => Promise.reject('should not be called') }
+    }
+
     global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
       if (url.includes('/history')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
       }
       if (url.includes('/messages') && opts?.method === 'POST') {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ text: 'Here is the MIDI CC map...', usage: { costUsd: 0.01 } }),
-        })
+        return Promise.resolve(makeNdjsonResponse([
+          { type: 'thinking', text: 'Considering MIDI CCs...' },
+          { type: 'text', text: 'Here is the MIDI CC map...' },
+          { type: 'done', text: 'Here is the MIDI CC map...', usage: { costUsd: 0.01 } },
+        ]))
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
     })
@@ -90,6 +103,117 @@ describe('ChatPage', () => {
       c => typeof c[0] === 'string' && c[0].includes('/messages')
     )
     expect(postCall?.[0]).toBe('/api/chat/sessions/test-session-1/messages')
+
+    // Verify the thinking block renders as a collapsible on the completed message
+    await waitFor(() => {
+      expect(screen.getByText('Thinking')).toBeInTheDocument()  // the <summary>
+    })
+    expect(screen.getByText('Considering MIDI CCs...')).toBeInTheDocument()
+  })
+
+  it('shows thinking from done event when no incremental thinking arrived', async () => {
+    function makeNdjsonResponse(events: Record<string, unknown>[]) {
+      const encoder = new TextEncoder()
+      const text = events.map(e => JSON.stringify(e)).join('\n') + '\n'
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(text))
+          controller.close()
+        },
+      })
+      return { ok: true, body, json: () => Promise.reject('should not be called') }
+    }
+
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/history')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      }
+      if (url.includes('/messages') && opts?.method === 'POST') {
+        return Promise.resolve(makeNdjsonResponse([
+          // No incremental thinking events — only in the done event
+          { type: 'text', text: 'Here is the answer.' },
+          { type: 'done', text: 'Here is the answer.', thinking: 'I considered the question carefully.', usage: {} },
+        ]))
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+    })
+
+    renderWithSession()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/ask about your gear/i)).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText(/ask about your gear/i)
+    fireEvent.change(input, { target: { value: 'Tell me about MIDI' } })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/here is the answer/i)).toBeInTheDocument()
+    })
+
+    // Thinking should show from the done event's thinking field
+    expect(screen.getByText('Thinking')).toBeInTheDocument()
+    expect(screen.getByText('I considered the question carefully.')).toBeInTheDocument()
+  })
+
+  it('renders deep thinking toggle defaulting to on', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    })
+
+    renderWithSession()
+
+    await waitFor(() => {
+      const toggle = screen.getByRole('checkbox', { name: /deep thinking/i })
+      expect(toggle).toBeInTheDocument()
+      expect(toggle).toBeChecked()
+    })
+  })
+
+  it('sends deepThinking true when toggle is on', async () => {
+    function makeNdjsonResponse(events: Record<string, unknown>[]) {
+      const encoder = new TextEncoder()
+      const text = events.map(e => JSON.stringify(e)).join('\n') + '\n'
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(text))
+          controller.close()
+        },
+      })
+      return { ok: true, body, json: () => Promise.reject('nope') }
+    }
+
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/history')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      }
+      if (url.includes('/messages') && opts?.method === 'POST') {
+        return Promise.resolve(makeNdjsonResponse([
+          { type: 'done', text: 'Response.', usage: {} },
+        ]))
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+    })
+
+    renderWithSession()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/ask about your gear/i)).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText(/ask about your gear/i)
+    fireEvent.change(input, { target: { value: 'test' } })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      const postCall = vi.mocked(global.fetch).mock.calls.find(
+        c => typeof c[0] === 'string' && c[0].includes('/messages')
+      )
+      const body = JSON.parse(postCall?.[1]?.body as string)
+      expect(body.deepThinking).toBe(true)
+    })
   })
 
   it('disables send button when input is empty', async () => {

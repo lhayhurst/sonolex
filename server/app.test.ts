@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -24,6 +25,30 @@ vi.mock('./lib/claude-cli', () => ({
 }))
 
 import { runClaude } from './lib/claude-cli'
+
+// Mock claude-stream for streaming chat
+vi.mock('./lib/claude-stream', () => ({
+  runClaudeStream: vi.fn(async function* () {
+    yield {
+      type: 'thinking',
+      text: 'Let me help with that.',
+    }
+    yield {
+      type: 'thinking_complete',
+      text: 'Let me help with that.',
+    }
+    yield {
+      type: 'text',
+      text: 'Here is my response.',
+    }
+    yield {
+      type: 'result',
+      text: 'Here is my response.',
+      sessionId: 'test-session-123',
+      usage: { inputTokens: 100, outputTokens: 50, costUsd: 0.01, durationMs: 5000 },
+    }
+  }),
+}))
 
 // Mock web-crawler
 vi.mock('./lib/web-crawler', () => ({
@@ -386,7 +411,7 @@ describe('API routes', () => {
   })
 
   describe('POST /api/chat/sessions/:id/messages', () => {
-    it('sends a message and returns response', async () => {
+    it('streams NDJSON with thinking, text, and done events', async () => {
       const session = await createSession('Test Chat')
 
       const res = await request(app)
@@ -395,8 +420,83 @@ describe('API routes', () => {
         .set('Content-Type', 'application/json')
 
       expect(res.status).toBe(200)
-      expect(res.body.text).toBeDefined()
-      expect(res.body.usage).toBeDefined()
+
+      // Parse NDJSON lines
+      const lines = res.text.trim().split('\n').map(l => JSON.parse(l))
+      const types = lines.map(l => l.type)
+      expect(types).toContain('thinking')
+      expect(types).toContain('text')
+      expect(types).toContain('done')
+
+      const done = lines.find(l => l.type === 'done')
+      expect(done.text).toBe('Here is my response.')
+      expect(done.usage).toBeDefined()
+    })
+
+    it('sets streaming-friendly headers for real-time delivery', async () => {
+      const session = await createSession('Stream Headers')
+
+      const res = await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Hello' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.headers['content-type']).toContain('application/x-ndjson')
+      expect(res.headers['cache-control']).toBe('no-cache')
+      expect(res.headers['connection']).toBe('keep-alive')
+    })
+
+    it('passes effort high when deepThinking is true', async () => {
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+
+      const session = await createSession('Deep Think')
+      await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Hello', deepThinking: true })
+        .set('Content-Type', 'application/json')
+
+      expect(vi.mocked(mockStream)).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ effort: 'high' }),
+      )
+    })
+
+    it('does not pass effort when deepThinking is false', async () => {
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+
+      const session = await createSession('Normal')
+      await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Hello', deepThinking: false })
+        .set('Content-Type', 'application/json')
+
+      const callOpts = vi.mocked(mockStream).mock.calls[0][1]
+      expect(callOpts?.effort).toBeUndefined()
+    })
+
+    it('includes thinking in done event even when only thinking_complete arrives', async () => {
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+      vi.mocked(mockStream).mockImplementation(async function* () {
+        // No incremental thinking_delta events — only the summary
+        yield { type: 'thinking_complete' as const, text: 'Full thinking from summary.' }
+        yield { type: 'text' as const, text: 'Response.' }
+        yield {
+          type: 'result' as const,
+          text: 'Response.',
+          sessionId: 'sess-tc',
+          usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.001, durationMs: 500 },
+        }
+      })
+
+      const session = await createSession('Thinking Complete Test')
+      const res = await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Tell me about MIDI' })
+        .set('Content-Type', 'application/json')
+
+      const lines = res.text.trim().split('\n').map(l => JSON.parse(l))
+      const done = lines.find(l => l.type === 'done')
+      expect(done.thinking).toBe('Full thinking from summary.')
     })
 
     it('returns 400 when no message provided', async () => {
@@ -459,11 +559,14 @@ describe('API routes', () => {
         .send({ content: '# My Studio\n\nOld content.' })
         .set('Content-Type', 'application/json')
 
-      const { runClaude: mockRun } = await import('./lib/claude-cli')
-      vi.mocked(mockRun).mockResolvedValueOnce({
-        text: 'I\'ve updated your studio doc with the Monolit.',
-        usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
-        sessionId: 'test-session-456',
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+      vi.mocked(mockStream).mockImplementation(async function* () {
+        yield {
+          type: 'result' as const,
+          text: 'I\'ve updated your studio doc with the Monolit.',
+          sessionId: 'test-session-456',
+          usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
+        }
       })
 
       const res = await request(app)
@@ -473,7 +576,7 @@ describe('API routes', () => {
 
       expect(res.status).toBe(200)
 
-      expect(vi.mocked(mockRun)).toHaveBeenCalledWith(
+      expect(vi.mocked(mockStream)).toHaveBeenCalledWith(
         expect.stringContaining('studio.md'),
         expect.objectContaining({
           allowedTools: ['Read', 'Edit', 'Write'],
@@ -489,17 +592,18 @@ describe('API routes', () => {
         .send({ content: '# My Studio\n\nOld content.' })
         .set('Content-Type', 'application/json')
 
-      const { runClaude: mockRun } = await import('./lib/claude-cli')
-      vi.mocked(mockRun).mockImplementationOnce(async () => {
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+      vi.mocked(mockStream).mockImplementation(async function* (_prompt, _opts) {
         await request(app)
           .put('/api/studio-doc')
           .send({ content: '# My Studio\n\nUpdated content with Monolit.' })
           .set('Content-Type', 'application/json')
 
-        return {
+        yield {
+          type: 'result' as const,
           text: 'I\'ve added the Monolit to your studio doc.',
-          usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
           sessionId: 'test-session-456',
+          usage: { inputTokens: 200, outputTokens: 100, costUsd: 0.02, durationMs: 3000 },
         }
       })
 
@@ -509,8 +613,10 @@ describe('API routes', () => {
         .set('Content-Type', 'application/json')
 
       expect(res.status).toBe(200)
-      expect(res.body.studioUpdated).toBe(true)
-      expect(res.body.text).toBe('I\'ve added the Monolit to your studio doc.')
+      const lines = res.text.trim().split('\n').map(l => JSON.parse(l))
+      const done = lines.find(l => l.type === 'done')
+      expect(done.studioUpdated).toBe(true)
+      expect(done.text).toBe('I\'ve added the Monolit to your studio doc.')
     })
   })
 

@@ -19,6 +19,7 @@ export interface ClaudeOptions {
   disableTools?: boolean
   allowedTools?: string[]
   addDirs?: string[]
+  effort?: 'high' | 'max'
 }
 
 export function stripMarkdownFences(text: string): string {

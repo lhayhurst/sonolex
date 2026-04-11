@@ -81,7 +81,7 @@ export class Storage {
     if (!exists) return undefined
 
     const raw = await readFile(path, 'utf-8')
-    return JSON.parse(raw) as CheatSheet
+    return this.normalizeCheatSheet(JSON.parse(raw), `${id}.json`)
   }
 
   async saveCheatSheet(cheatsheet: CheatSheet): Promise<void> {
@@ -105,9 +105,22 @@ export class Storage {
     const sheets: CheatSheet[] = []
     for (const file of jsonFiles) {
       const raw = await readFile(join(this.cheatsheetsDir, file), 'utf-8')
-      sheets.push(JSON.parse(raw) as CheatSheet)
+      sheets.push(this.normalizeCheatSheet(JSON.parse(raw), file))
     }
     return sheets
+  }
+
+  private normalizeCheatSheet(data: Record<string, unknown>, filename?: string): CheatSheet {
+    const id = (data.id as string) || filename?.replace('.json', '') || ''
+    return {
+      id,
+      title: (data.title as string) || 'Untitled',
+      content: (data.content as string) || JSON.stringify(data, null, 2),
+      category: (data.category as CheatSheet['category']) || 'other',
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      createdAt: (data.createdAt as string) || new Date().toISOString(),
+      updatedAt: (data.updatedAt as string) || new Date().toISOString(),
+    }
   }
 
   // --- Export ---

@@ -1,5 +1,6 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Storage } from './storage'
@@ -195,6 +196,51 @@ describe('Storage', () => {
       expect(exported.devices).toHaveLength(1)
       expect(exported.manuals).toHaveLength(1)
       expect(exported.manuals[0].content).toBe('text')
+    })
+  })
+
+  describe('cheatsheet tag normalization', () => {
+    it('defaults tags to empty array when null in stored JSON', async () => {
+      const csDir = join(tempDir, 'cheatsheets')
+      await mkdir(csDir, { recursive: true })
+      await writeFile(
+        join(csDir, 'broken.json'),
+        JSON.stringify({ id: 'broken', title: 'No Tags', content: 'test', category: 'other', tags: null, createdAt: '', updatedAt: '' }),
+      )
+
+      const sheets = await storage.listCheatSheets()
+      expect(sheets).toHaveLength(1)
+      expect(sheets[0].tags).toEqual([])
+    })
+
+    it('normalizes cheat sheets with non-standard schema', async () => {
+      const csDir = join(tempDir, 'cheatsheets')
+      await mkdir(csDir, { recursive: true })
+      await writeFile(
+        join(csDir, 'weird.json'),
+        JSON.stringify({ title: 'Raw Data', sliders: [{ cc: 30 }] }),
+      )
+
+      const sheets = await storage.listCheatSheets()
+      expect(sheets).toHaveLength(1)
+      expect(sheets[0].id).toBe('weird')
+      expect(sheets[0].title).toBe('Raw Data')
+      expect(sheets[0].tags).toEqual([])
+      expect(sheets[0].category).toBe('other')
+      expect(sheets[0].content).toContain('"sliders"')
+    })
+
+    it('defaults tags to empty array when missing from stored JSON', async () => {
+      const csDir = join(tempDir, 'cheatsheets')
+      await mkdir(csDir, { recursive: true })
+      await writeFile(
+        join(csDir, 'notags.json'),
+        JSON.stringify({ id: 'notags', title: 'Missing Tags', content: 'test', category: 'other', createdAt: '', updatedAt: '' }),
+      )
+
+      const sheet = await storage.loadCheatSheet('notags')
+      expect(sheet).toBeDefined()
+      expect(sheet!.tags).toEqual([])
     })
   })
 })

@@ -13,6 +13,7 @@ import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevantCheatSheets, buildCheatSheetContext } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
+import { extractCheatSheet } from './lib/cheatsheet-extractor'
 import { createManual, createCheatSheet } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
@@ -464,11 +465,10 @@ export async function createApp(storage: Storage, dataDir?: string) {
         enrichedMessage += '\n\n' + buildCheatSheetContext(relevantSheets)
       }
 
-      // If user wants to save a cheat sheet, tell Claude where and how
+      // If user wants to save a cheat sheet, tell Claude to return it as JSON
       const wantsCheatSheet = /\b(save|create|make)\b.*\b(cheat\s*sheet|quick\s*ref|reference\s*card)\b/i.test(message)
       if (wantsCheatSheet) {
-        const cheatsheetsDir = join(resolvedDataDir, 'cheatsheets')
-        enrichedMessage += `\n\n--- Cheat Sheet Instructions ---\nTo save a cheat sheet, use the Write tool to create a JSON file in: ${cheatsheetsDir}\nThe file should be named with a UUID (e.g. "abc123.json") and contain:\n{"id":"<same-uuid>","title":"...","content":"<markdown>","category":"<one of: midi-map, signal-routing, shortcuts, troubleshooting, preset-notes, checklist, quick-reference, other>","tags":["tag1","tag2"],"createdAt":"<iso-date>","updatedAt":"<iso-date>"}\nAfter creating it, tell the user it's saved.`
+        enrichedMessage += `\n\n--- Cheat Sheet Instructions ---\nTo save a cheat sheet, include a JSON block in your response with this format:\n\`\`\`json\n{"title":"...","content":"<markdown content>","category":"<one of: midi-map, signal-routing, shortcuts, troubleshooting, preset-notes, checklist, quick-reference, other>","tags":["tag1","tag2"]}\n\`\`\`\nThe content field should be markdown with the actual cheat sheet content. The system will automatically save it. Do NOT use the Write tool for cheat sheets.`
       }
 
       // If user wants to update the studio, tell Claude to edit the file directly
@@ -524,9 +524,30 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
       const studioUpdated = wantsStudioUpdate && (await studioDoc.load()) !== currentStudioDoc
 
+      // Extract and save cheat sheet if Claude returned one
+      let cheatSheetSaved: boolean | undefined
+      if (wantsCheatSheet && finalText) {
+        const extracted = extractCheatSheet(finalText)
+        if (extracted) {
+          const now = new Date().toISOString()
+          const sheet = createCheatSheet({
+            id: crypto.randomUUID(),
+            title: extracted.title,
+            content: extracted.content,
+            category: extracted.category,
+            tags: extracted.tags,
+            createdAt: now,
+            updatedAt: now,
+          })
+          await storage.saveCheatSheet(sheet)
+          cheatSheetSaved = true
+        }
+      }
+
       res.write(JSON.stringify({
         type: 'done', text: finalText, usage: finalUsage, studioUpdated,
         thinking: finalThinking || undefined,
+        cheatSheetSaved,
       }) + '\n')
       res.end()
     } catch (err: unknown) {

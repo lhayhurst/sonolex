@@ -570,6 +570,54 @@ describe('API routes', () => {
     })
   })
 
+  describe('POST /api/chat/sessions/:id/messages cheat sheet extraction', () => {
+    it('saves cheat sheet via API when Claude returns one in a JSON block', async () => {
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+      vi.mocked(mockStream).mockImplementation(async function* () {
+        yield {
+          type: 'text' as const,
+          text: 'Here\'s your cheat sheet!\n\n```json\n{"title":"MIDI Map","content":"## CCs\\n- CC1: Mod","category":"midi-map","tags":["midi"]}\n```\n\nSaved!',
+        }
+        yield {
+          type: 'result' as const,
+          text: 'Here\'s your cheat sheet!\n\n```json\n{"title":"MIDI Map","content":"## CCs\\n- CC1: Mod","category":"midi-map","tags":["midi"]}\n```\n\nSaved!',
+          sessionId: 'sess-cs',
+          usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.001, durationMs: 500 },
+        }
+      })
+
+      const session = await createSession('CS Test')
+      const res = await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Save a cheat sheet of my MIDI map' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+      const lines = res.text.trim().split('\n').map(l => JSON.parse(l))
+      const done = lines.find(l => l.type === 'done')
+      expect(done.cheatSheetSaved).toBe(true)
+
+      // Verify it was actually saved
+      const sheetsRes = await request(app).get('/api/cheatsheets')
+      expect(sheetsRes.body).toHaveLength(1)
+      expect(sheetsRes.body[0].title).toBe('MIDI Map')
+      expect(sheetsRes.body[0].category).toBe('midi-map')
+    })
+
+    it('does not save cheat sheet when response has no JSON block', async () => {
+      const session = await createSession('No CS')
+      const res = await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Tell me about MIDI' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200)
+      const lines = res.text.trim().split('\n').map(l => JSON.parse(l))
+      const done = lines.find(l => l.type === 'done')
+      expect(done.cheatSheetSaved).toBeUndefined()
+    })
+  })
+
   describe('POST /api/chat/sessions/:id/messages with studio update', () => {
     it('enables file tools and passes studio file path when user asks to update studio', async () => {
       const session = await createSession()

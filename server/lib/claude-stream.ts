@@ -43,13 +43,26 @@ export async function* runClaudeStream(
   const rl = createInterface({ input: proc.stdout! })
 
   const lines: string[] = []
+  const stderrChunks: string[] = []
   let closed = false
   let exitCode: number | null = null
+  let errorResult: string | null = null
   let resolveWait: (() => void) | null = null
 
   rl.on('line', (line) => {
+    // Check for error results before queuing
+    try {
+      const parsed = JSON.parse(line)
+      if (parsed.type === 'result' && parsed.is_error) {
+        errorResult = parsed.result ?? 'Unknown error'
+      }
+    } catch { /* not JSON, ignore */ }
     lines.push(line)
     resolveWait?.()
+  })
+
+  proc.stderr!.on('data', (chunk) => {
+    stderrChunks.push(chunk.toString())
   })
 
   proc.on('close', (code) => {
@@ -73,6 +86,7 @@ export async function* runClaudeStream(
   }
 
   if (exitCode !== null && exitCode !== 0) {
-    throw new Error(`claude CLI exited with code ${exitCode}`)
+    const detail = errorResult || stderrChunks.join('').trim() || `exit code ${exitCode}`
+    throw new Error(`claude CLI failed: ${detail}`)
   }
 }

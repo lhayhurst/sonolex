@@ -142,7 +142,7 @@ describe('runClaudeStream', () => {
     expect(args).toContain('Be helpful')
   })
 
-  it('throws on non-zero exit code', async () => {
+  it('includes stderr in error message on non-zero exit code', async () => {
     const { proc, stdout } = createMockProcess()
     vi.mocked(spawn).mockReturnValue(proc as ReturnType<typeof spawn>)
 
@@ -154,9 +154,40 @@ describe('runClaudeStream', () => {
       return events
     })()
 
+    await new Promise(r => setTimeout(r, 5))
+    ;(proc as unknown as { stderr: import('node:stream').Readable }).stderr.push('Something went wrong\n')
+    ;(proc as unknown as { stderr: import('node:stream').Readable }).stderr.push(null)
     stdout.push(null)
     proc.emit('close', 1)
 
-    await expect(streamPromise).rejects.toThrow('claude CLI exited with code 1')
+    await expect(streamPromise).rejects.toThrow('Something went wrong')
+  })
+
+  it('includes error result text when CLI reports an error', async () => {
+    const { proc, stdout } = createMockProcess()
+    vi.mocked(spawn).mockReturnValue(proc as ReturnType<typeof spawn>)
+
+    const events: ClaudeStreamEvent[] = []
+    const streamPromise = (async () => {
+      for await (const event of runClaudeStream('Fail')) {
+        events.push(event)
+      }
+    })()
+
+    await new Promise(r => setTimeout(r, 5))
+    stdout.push(JSON.stringify({
+      type: 'result',
+      subtype: 'error',
+      is_error: true,
+      result: 'Rate limit exceeded',
+      session_id: 'x',
+      total_cost_usd: 0,
+      duration_ms: 0,
+      usage: { input_tokens: 0, output_tokens: 0 },
+    }) + '\n')
+    stdout.push(null)
+    proc.emit('close', 1)
+
+    await expect(streamPromise).rejects.toThrow('Rate limit exceeded')
   })
 })

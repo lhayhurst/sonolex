@@ -474,6 +474,26 @@ describe('API routes', () => {
       expect(callOpts?.effort).toBeUndefined()
     })
 
+    it('sends error as NDJSON when stream fails mid-response', async () => {
+      const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
+      vi.mocked(mockStream).mockImplementation(async function* () {
+        yield { type: 'text' as const, text: 'partial' }
+        throw new Error('CLI crashed')
+      })
+
+      const session = await createSession('Error Test')
+      const res = await request(app)
+        .post(`/api/chat/sessions/${session.id}/messages`)
+        .send({ message: 'Hello' })
+        .set('Content-Type', 'application/json')
+
+      expect(res.status).toBe(200) // headers already sent as 200
+      const lines = res.text.trim().split('\n').map(l => JSON.parse(l))
+      const errorLine = lines.find(l => l.type === 'error')
+      expect(errorLine).toBeDefined()
+      expect(errorLine.error).toContain('CLI crashed')
+    })
+
     it('includes thinking in done event even when only thinking_complete arrives', async () => {
       const { runClaudeStream: mockStream } = await import('./lib/claude-stream')
       vi.mocked(mockStream).mockImplementation(async function* () {

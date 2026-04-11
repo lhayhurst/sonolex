@@ -531,7 +531,12 @@ export async function createApp(storage: Storage, dataDir?: string) {
       res.end()
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Chat failed'
-      res.status(500).json({ error: errMsg })
+      if (res.headersSent) {
+        res.write(JSON.stringify({ type: 'error', error: errMsg }) + '\n')
+        res.end()
+      } else {
+        res.status(500).json({ error: errMsg })
+      }
     }
   })
 

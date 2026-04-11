@@ -206,6 +206,8 @@ export function ChatPage() {
           } else if (event.type === 'text') {
             text += event.text as string
             setStreaming({ thinking, text })
+          } else if (event.type === 'error') {
+            setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.error}` }])
           } else if (event.type === 'done') {
             const finalThinking = thinking || (event.thinking as string) || ''
             setMessages(prev => [...prev, {

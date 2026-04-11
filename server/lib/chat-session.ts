@@ -75,13 +75,36 @@ export class ChatSession {
     async function* wrapStream(): AsyncGenerator<ClaudeStreamEvent> {
       let finalText = ''
       let finalSessionId: string | undefined
+      let retried = false
 
-      for await (const event of source) {
-        if (event.type === 'result') {
-          finalText = event.text
-          finalSessionId = event.sessionId
+      try {
+        for await (const event of source) {
+          if (event.type === 'result') {
+            finalText = event.text
+            finalSessionId = event.sessionId
+          }
+          yield event
         }
-        yield event
+      } catch (err) {
+        // If resume failed, retry as a fresh session
+        if (session.sessionId && !retried) {
+          retried = true
+          session.sessionId = undefined
+          const retrySource = runClaudeStream(claudeMessage, {
+            ...options,
+            resumeSessionId: undefined,
+            systemPrompt,
+          })
+          for await (const event of retrySource) {
+            if (event.type === 'result') {
+              finalText = event.text
+              finalSessionId = event.sessionId
+            }
+            yield event
+          }
+        } else {
+          throw err
+        }
       }
 
       if (finalSessionId) {

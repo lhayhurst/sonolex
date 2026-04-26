@@ -73,6 +73,26 @@ describe('ManualsPage', () => {
     })
   })
 
+  it('shows a download markdown link for each manual', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([
+        { id: 'm1', title: 'Fireface Manual', content: '# Fireface' },
+      ]),
+    })
+
+    render(
+      <MemoryRouter>
+        <ManualsPage />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: /download markdown/i })
+      expect(link).toHaveAttribute('href', '/api/manuals/m1/markdown')
+    })
+  })
+
   it('hides summary by default and shows it on toggle', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

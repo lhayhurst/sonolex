@@ -52,6 +52,13 @@ function ManualCard({ manual, onDelete }: { manual: Manual; onDelete: (id: strin
             Open PDF
           </a>
         )}
+        <a
+          href={`/api/manuals/${manual.id}/markdown`}
+          className="manual-card-md-link"
+          download
+        >
+          Download Markdown
+        </a>
       </div>
     </div>
   )

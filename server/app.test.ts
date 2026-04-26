@@ -137,6 +137,25 @@ describe('API routes', () => {
     })
   })
 
+  describe('GET /api/manuals/:id/markdown', () => {
+    it('returns the manual content as a downloadable markdown file', async () => {
+      await storage.saveManual(
+        createManual({ id: 'm1', title: 'My Manual', content: '# Hello\n\nSome text.' })
+      )
+      const res = await request(app).get('/api/manuals/m1/markdown')
+      expect(res.status).toBe(200)
+      expect(res.headers['content-type']).toMatch(/markdown/)
+      expect(res.headers['content-disposition']).toMatch(/attachment/)
+      expect(res.headers['content-disposition']).toMatch(/\.md/)
+      expect(res.text).toBe('# Hello\n\nSome text.')
+    })
+
+    it('returns 404 for non-existent manual', async () => {
+      const res = await request(app).get('/api/manuals/nope/markdown')
+      expect(res.status).toBe(404)
+    })
+  })
+
   describe('POST /api/manuals', () => {
     it('creates a new manual', async () => {
       const manual = { id: 'm1', title: 'New Manual', content: 'new text' }

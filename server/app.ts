@@ -78,6 +78,18 @@ export async function createApp(storage: Storage, dataDir?: string) {
     res.status(204).send()
   })
 
+  app.get('/api/manuals/:id/markdown', async (req, res) => {
+    const manual = await storage.loadManual(req.params.id)
+    if (!manual) {
+      res.status(404).json({ error: 'Manual not found' })
+      return
+    }
+    const safeTitle = (manual.title || manual.id).replace(/[^a-zA-Z0-9._-]+/g, '_')
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}.md"`)
+    res.send(manual.content ?? '')
+  })
+
   app.get('/api/manuals/:id/pdf', async (req, res) => {
     if (!pdfsDir) {
       res.status(404).json({ error: 'PDF storage not configured' })

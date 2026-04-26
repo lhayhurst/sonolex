@@ -1426,9 +1426,9 @@ h3 {
   margin: 0;
 }
 
-.manual-card-pdf-link {
+.manual-card-pdf-link,
+.manual-card-md-link {
   display: inline-block;
-  margin-top: 8px;
   font-size: 12px;
   font-weight: 500;
   color: var(--accent);
@@ -1481,10 +1481,13 @@ h3 {
 }
 
 .manual-card-actions {
+  display: flex;
+  gap: 12px;
   margin-top: 8px;
 }
 
-.manual-card-pdf-link:hover {
+.manual-card-pdf-link:hover,
+.manual-card-md-link:hover {
   text-decoration: underline;
 }
 

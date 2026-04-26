@@ -638,6 +638,27 @@ body {
   font-style: italic;
 }
 
+/* Tool-use chips — show what Claude is consulting (Grep, Read, etc.) */
+.chat-tool-calls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+
+.chat-tool-call {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-elevated, var(--bg-sidebar));
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 /* Collapsible thinking block */
 .chat-thinking {
   margin-bottom: 8px;

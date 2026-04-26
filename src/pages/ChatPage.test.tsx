@@ -111,6 +111,52 @@ describe('ChatPage', () => {
     expect(screen.getByText('Considering MIDI CCs...')).toBeInTheDocument()
   })
 
+  it('renders a tool-use chip for each Claude tool invocation during streaming', async () => {
+    function makeNdjsonResponse(events: Record<string, unknown>[]) {
+      const encoder = new TextEncoder()
+      const text = events.map(e => JSON.stringify(e)).join('\n') + '\n'
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(text))
+          controller.close()
+        },
+      })
+      return { ok: true, body, json: () => Promise.reject('should not be called') }
+    }
+
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/history')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      }
+      if (url.includes('/messages') && opts?.method === 'POST') {
+        return Promise.resolve(makeNdjsonResponse([
+          { type: 'tool_use', toolName: 'Grep' },
+          { type: 'tool_use', toolName: 'Read' },
+          { type: 'text', text: 'Found it.' },
+          { type: 'done', text: 'Found it.', usage: { costUsd: 0.01 } },
+        ]))
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+    })
+
+    renderWithSession()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/ask about your gear/i)).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText(/ask about your gear/i)
+    fireEvent.change(input, { target: { value: 'search for MIDI' } })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/found it/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Grep/)).toBeInTheDocument()
+    expect(screen.getByText(/Read/)).toBeInTheDocument()
+  })
+
   it('shows thinking from done event when no incremental thinking arrived', async () => {
     function makeNdjsonResponse(events: Record<string, unknown>[]) {
       const encoder = new TextEncoder()

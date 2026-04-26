@@ -10,6 +10,18 @@ interface ChatMessage {
   content: string
   thinking?: string
   imageUrl?: string
+  toolCalls?: string[]
+}
+
+function ToolCallChips({ calls }: { calls: string[] }) {
+  if (calls.length === 0) return null
+  return (
+    <div className="chat-tool-calls">
+      {calls.map((name, i) => (
+        <span key={i} className="chat-tool-call">🔍 {name}</span>
+      ))}
+    </div>
+  )
 }
 
 const remarkPlugins = [remarkGfm]
@@ -30,6 +42,9 @@ const ChatMessageItem = memo(function ChatMessageItem({ msg, index }: { msg: Cha
             <div className="chat-thinking-content">{msg.thinking}</div>
           </details>
         )}
+        {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
+          <ToolCallChips calls={msg.toolCalls} />
+        )}
         {msg.role === 'assistant'
           ? <Markdown remarkPlugins={remarkPlugins}>{msg.content}</Markdown>
           : msg.content}
@@ -41,6 +56,7 @@ const ChatMessageItem = memo(function ChatMessageItem({ msg, index }: { msg: Cha
 interface StreamingState {
   thinking: string
   text: string
+  toolCalls: string[]
 }
 
 const ChatMessageList = memo(function ChatMessageList({
@@ -71,6 +87,9 @@ const ChatMessageList = memo(function ChatMessageList({
             ) : !streaming?.text ? (
               <span className="chat-typing">Thinking...</span>
             ) : null}
+            {streaming && streaming.toolCalls.length > 0 && (
+              <ToolCallChips calls={streaming.toolCalls} />
+            )}
             {streaming?.text && (
               <Markdown remarkPlugins={remarkPlugins}>{streaming.text}</Markdown>
             )}
@@ -193,7 +212,7 @@ export function ChatPage() {
     }
 
     setMessages(prev => [...prev, { role: 'user', content: userMessage, imageUrl }])
-    setStreaming({ thinking: '', text: '' })
+    setStreaming({ thinking: '', text: '', toolCalls: [] })
 
     try {
       const res = await fetch(`/api/chat/sessions/${activeSessionId}/messages`, {
@@ -205,14 +224,18 @@ export function ChatPage() {
       if (res.ok && res.body) {
         let thinking = ''
         let text = ''
+        const toolCalls: string[] = []
 
         for await (const event of parseNdjsonStream(res.body)) {
           if (event.type === 'thinking') {
             thinking += event.text as string
-            setStreaming({ thinking, text })
+            setStreaming({ thinking, text, toolCalls: [...toolCalls] })
           } else if (event.type === 'text') {
             text += event.text as string
-            setStreaming({ thinking, text })
+            setStreaming({ thinking, text, toolCalls: [...toolCalls] })
+          } else if (event.type === 'tool_use') {
+            toolCalls.push(event.toolName as string)
+            setStreaming({ thinking, text, toolCalls: [...toolCalls] })
           } else if (event.type === 'error') {
             setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.error}` }])
           } else if (event.type === 'done') {
@@ -221,6 +244,7 @@ export function ChatPage() {
               role: 'assistant',
               content: event.text as string,
               thinking: finalThinking || undefined,
+              toolCalls: toolCalls.length > 0 ? [...toolCalls] : undefined,
             }])
           }
         }

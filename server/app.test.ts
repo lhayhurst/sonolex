@@ -75,6 +75,14 @@ describe('API routes', () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
+  describe('GET /api/identity', () => {
+    it('returns the app identity so the frontend can detect a wrong-fork backend', async () => {
+      const res = await request(app).get('/api/identity')
+      expect(res.status).toBe(200)
+      expect(res.body.app).toBe('sonolex')
+    })
+  })
+
   describe('GET /api/studio', () => {
     it('returns studio data', async () => {
       const res = await request(app).get('/api/studio')

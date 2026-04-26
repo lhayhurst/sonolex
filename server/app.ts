@@ -31,6 +31,12 @@ export async function createApp(storage: Storage, dataDir?: string) {
   app.use(cors())
   app.use(express.json())
 
+  // App identity — frontend uses this to detect when it has been proxied
+  // to a different fork's backend (e.g. port collision).
+  app.get('/api/identity', (_req, res) => {
+    res.json({ app: 'sonolex' })
+  })
+
   // Studio data
   app.get('/api/studio', async (_req, res) => {
     const studio = await storage.loadStudio()

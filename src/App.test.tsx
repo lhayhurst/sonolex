@@ -13,6 +13,12 @@ function renderApp(initialRoute = '/') {
 
 function mockClaudeAvailable() {
   global.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url === '/api/identity') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ app: 'sonolex' }),
+      })
+    }
     if (url === '/api/config/status') {
       return Promise.resolve({
         ok: true,
@@ -34,10 +40,31 @@ function mockClaudeAvailable() {
 
 function mockClaudeUnavailable() {
   global.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url === '/api/identity') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ app: 'sonolex' }),
+      })
+    }
     if (url === '/api/config/status') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ claudeAvailable: false }),
+      })
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([]),
+    })
+  })
+}
+
+function mockWrongBackend(otherAppName: string) {
+  global.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url === '/api/identity') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ app: otherAppName }),
       })
     }
     return Promise.resolve({
@@ -99,6 +126,18 @@ describe('App', () => {
         expect(screen.getByText(/welcome to sonolex/i)).toBeInTheDocument()
       })
       expect(screen.queryByText('sonolex')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('when proxied to a wrong-fork backend', () => {
+    it('shows a blocking error and does not render the app', async () => {
+      mockWrongBackend('dragonbane')
+      renderApp()
+      await waitFor(() => {
+        expect(screen.getByText(/wrong backend/i)).toBeInTheDocument()
+      })
+      expect(screen.getByText(/dragonbane/)).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /manuals/i })).not.toBeInTheDocument()
     })
   })
 })

@@ -2,27 +2,43 @@ import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { SetupScreen } from './components/setup/SetupScreen'
+import { WrongBackendScreen } from './components/setup/WrongBackendScreen'
 import { ManualsPage } from './pages/ManualsPage'
 import { ChatPage } from './pages/ChatPage'
 import { CheatSheetsPage } from './pages/CheatSheetsPage'
 import { StudioPage } from './pages/StudioPage'
 import { AboutPage } from './pages/AboutPage'
 
-type AppState = 'loading' | 'setup' | 'ready'
+const EXPECTED_APP = 'sonolex'
+
+type AppState = 'loading' | 'setup' | 'ready' | 'wrong-backend'
 
 function App() {
   const [state, setState] = useState<AppState>('loading')
+  const [foundApp, setFoundApp] = useState<string>('')
 
-  const checkStatus = useCallback(() => {
+  const checkStatus = useCallback(async () => {
     setState('loading')
-    fetch('/api/config/status')
-      .then(res => res.json())
-      .then(data => {
-        setState(data.claudeAvailable ? 'ready' : 'setup')
-      })
-      .catch(() => {
-        setState('setup')
-      })
+    try {
+      const idRes = await fetch('/api/identity')
+      const id = await idRes.json()
+      if (id.app !== EXPECTED_APP) {
+        setFoundApp(id.app ?? 'unknown')
+        setState('wrong-backend')
+        return
+      }
+    } catch {
+      // Identity endpoint missing or unreachable. Fall through to status check
+      // so single-fork forks predating the identity endpoint still boot.
+    }
+
+    try {
+      const res = await fetch('/api/config/status')
+      const data = await res.json()
+      setState(data.claudeAvailable ? 'ready' : 'setup')
+    } catch {
+      setState('setup')
+    }
   }, [])
 
   useEffect(() => {
@@ -30,6 +46,10 @@ function App() {
   }, [checkStatus])
 
   if (state === 'loading') return null
+
+  if (state === 'wrong-backend') {
+    return <WrongBackendScreen expected={EXPECTED_APP} found={foundApp} onRetry={checkStatus} />
+  }
 
   if (state === 'setup') {
     return <SetupScreen onRetry={checkStatus} />

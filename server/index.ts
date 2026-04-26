@@ -3,7 +3,7 @@ import { createApp } from './app'
 import { Storage } from './lib/storage'
 import { isClaudeAvailable } from './lib/claude-cli'
 
-const PORT = parseInt(process.env.PORT ?? '3001', 10)
+const PORT = parseInt(process.env.PORT ?? '3011', 10)
 const DATA_DIR = process.env.DATA_DIR ?? join(process.cwd(), 'data')
 
 // Prevent the server from crashing on unhandled errors
@@ -35,9 +35,22 @@ async function main() {
   const app = await createApp(storage, DATA_DIR)
   console.log(`  App init: ${Date.now() - t2}ms`)
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Sonolex ready in ${Date.now() - t0}ms — http://localhost:${PORT}`)
     console.log(`Data directory: ${DATA_DIR}`)
+  })
+
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `\nERROR: Port ${PORT} is already in use.\n` +
+        `Another app (perhaps a different fork) is bound to this port.\n` +
+        `Stop that process, or run with PORT=<other> npm run dev:server.\n`
+      )
+    } else {
+      console.error('Server error:', err)
+    }
+    process.exit(1)
   })
 }
 

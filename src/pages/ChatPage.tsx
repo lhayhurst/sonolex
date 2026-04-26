@@ -100,19 +100,20 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // If no sessionId, create a new session and redirect
-  useEffect(() => {
-    if (!sessionId) {
-      fetch('/api/chat/sessions', {
+  async function createSession(): Promise<string | null> {
+    try {
+      const res = await fetch('/api/chat/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-        .then(res => res.json())
-        .then(data => navigate(`/chat/${data.id}`, { replace: true }))
-        .catch(() => {})
+      const data = await res.json()
+      navigate(`/chat/${data.id}`, { replace: true })
+      return data.id
+    } catch {
+      return null
     }
-  }, [sessionId, navigate])
+  }
 
   // Load device names for TOC topic extraction
   useEffect(() => {
@@ -164,7 +165,13 @@ export function ChatPage() {
   }
 
   async function handleSend() {
-    if ((!input.trim() && !pendingImage) || sending || !sessionId) return
+    if ((!input.trim() && !pendingImage) || sending) return
+
+    let activeSessionId: string | undefined = sessionId
+    if (!activeSessionId) {
+      activeSessionId = (await createSession()) ?? undefined
+      if (!activeSessionId) return
+    }
 
     const userMessage = input.trim() || (pendingImage ? 'What is this image?' : '')
     const currentImage = pendingImage
@@ -189,7 +196,7 @@ export function ChatPage() {
     setStreaming({ thinking: '', text: '' })
 
     try {
-      const res = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
+      const res = await fetch(`/api/chat/sessions/${activeSessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage, imagePath, deepThinking }),
@@ -267,8 +274,6 @@ export function ChatPage() {
       setPendingImage(null)
     }
   }
-
-  if (!sessionId) return null
 
   return (
     <div className="chat-page">

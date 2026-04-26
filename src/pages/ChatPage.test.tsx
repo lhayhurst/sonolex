@@ -229,14 +229,8 @@ describe('ChatPage', () => {
     })
   })
 
-  it('creates a new session when no sessionId is provided', async () => {
-    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (url === '/api/chat/sessions' && opts?.method === 'POST') {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ id: 'new-session-id', name: 'New Chat' }),
-        })
-      }
+  it('does not auto-create a session when no sessionId is provided', async () => {
+    global.fetch = vi.fn().mockImplementation(() => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
     })
 
@@ -249,11 +243,15 @@ describe('ChatPage', () => {
       </MemoryRouter>
     )
 
+    // Wait for any effects to settle
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/chat/sessions',
-        expect.objectContaining({ method: 'POST' }),
-      )
+      expect(screen.getByRole('textbox')).toBeInTheDocument()
     })
+
+    // Verify no POST to create a session was made
+    const postCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([url, opts]: [string, RequestInit?]) => url === '/api/chat/sessions' && opts?.method === 'POST'
+    )
+    expect(postCalls).toHaveLength(0)
   })
 })

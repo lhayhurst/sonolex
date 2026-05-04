@@ -14,6 +14,7 @@ import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevantCheatSheets, buildCheatSheetContext } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { extractCheatSheet } from './lib/cheatsheet-extractor'
+import { QmdStore } from './lib/qmd-store'
 import { createManual, createCheatSheet } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
@@ -27,6 +28,22 @@ export async function createApp(storage: Storage, dataDir?: string) {
   const sessionManager = new ChatSessionManager(dataDir ?? '.')
   await sessionManager.init()
   const studioDoc = new StudioDoc(dataDir ?? '.')
+
+  // QMD search index. Lazy-init: models load on first search, not on
+  // server boot, so startup stays fast. Storage hooks below trigger a
+  // background reindex whenever the markdown library changes — fire and
+  // forget; failures are logged but don't block the user's save.
+  const qmdStore = new QmdStore({ dataDir: resolvedDataDir })
+  function reindexInBackground(collection: 'manuals' | 'cheatsheets' | 'studio'): void {
+    qmdStore.reindex([collection]).catch(err => {
+      console.error(`QMD reindex(${collection}) failed:`, err)
+    })
+  }
+  storage.setHooks({
+    onManualChange: () => reindexInBackground('manuals'),
+    onCheatSheetChange: () => reindexInBackground('cheatsheets'),
+    onStudioChange: () => reindexInBackground('studio'),
+  })
   const app = express()
   app.use(cors())
   app.use(express.json())

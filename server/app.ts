@@ -50,9 +50,18 @@ export async function createApp(storage: Storage, dataDir?: string) {
   // so the index would stay empty until a user happened to re-save
   // something. Force one reindex of all collections at boot. Cheap when
   // up-to-date (QMD only re-scans changed files), populates initially.
-  // Fire and forget — server doesn't block on it.
-  qmdStore.reindex(['manuals', 'cheatsheets', 'studio']).catch(err => {
-    console.error('QMD bootstrap reindex failed:', err)
+  // Fire and forget — server doesn't block on it — but log loudly so
+  // the user can see it run (or fail) in the dev console.
+  console.log('  QMD bootstrap: scanning collections...')
+  const bootStarted = Date.now()
+  qmdStore.reindex(['manuals', 'cheatsheets', 'studio']).then(r => {
+    const ms = Date.now() - bootStarted
+    console.log(
+      `  QMD bootstrap: indexed ${r.indexed} new, ${r.updated} updated, ` +
+      `${r.unchanged} unchanged, ${r.removed} removed (${ms}ms)`,
+    )
+  }).catch(err => {
+    console.error('  QMD bootstrap FAILED:', err)
   })
   const app = express()
   app.use(cors())

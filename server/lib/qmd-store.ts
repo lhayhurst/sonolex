@@ -169,9 +169,23 @@ export class QmdStore {
   // a ~2GB model download on first save, which is a terrible surprise
   // (especially on a tethered connection). Embeddings refresh on first
   // search via embedIfNeeded().
-  async reindex(collections?: Array<'manuals' | 'cheatsheets' | 'studio'>): Promise<void> {
+  // Returns the result so callers can log indexed/updated/unchanged counts
+  // — useful for the boot bootstrap where the user wants to see something
+  // happen.
+  async reindex(collections?: Array<'manuals' | 'cheatsheets' | 'studio'>): Promise<{
+    indexed: number
+    updated: number
+    unchanged: number
+    removed: number
+  }> {
     await this.init()
-    await this.store!.update({ collections })
+    const result = await this.store!.update({ collections })
+    return {
+      indexed: result.indexed ?? 0,
+      updated: result.updated ?? 0,
+      unchanged: result.unchanged ?? 0,
+      removed: result.removed ?? 0,
+    }
   }
 
   // Embed any chunks that aren't yet vectorized. Triggers model download

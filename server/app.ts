@@ -44,6 +44,16 @@ export async function createApp(storage: Storage, dataDir?: string) {
     onCheatSheetChange: () => reindexInBackground('cheatsheets'),
     onStudioChange: () => reindexInBackground('studio'),
   })
+
+  // Bootstrap the index. The save hooks only fire on changes — for an
+  // existing library, nothing has changed since the QMD branch shipped,
+  // so the index would stay empty until a user happened to re-save
+  // something. Force one reindex of all collections at boot. Cheap when
+  // up-to-date (QMD only re-scans changed files), populates initially.
+  // Fire and forget — server doesn't block on it.
+  qmdStore.reindex(['manuals', 'cheatsheets', 'studio']).catch(err => {
+    console.error('QMD bootstrap reindex failed:', err)
+  })
   const app = express()
   app.use(cors())
   app.use(express.json())

@@ -65,7 +65,11 @@ export async function createApp(storage: Storage, dataDir?: string) {
   })
 
   app.post('/api/manuals', async (req, res) => {
-    const manual = req.body as Manual
+    const incoming = req.body as Manual
+    const manual: Manual = {
+      ...incoming,
+      id: incoming.id || await storage.nextManualSlug(incoming.title),
+    }
     await storage.saveManual(manual)
     res.status(201).json(manual)
   })
@@ -130,7 +134,11 @@ export async function createApp(storage: Storage, dataDir?: string) {
   })
 
   app.post('/api/cheatsheets', async (req, res) => {
-    const sheet = req.body as CheatSheet
+    const incoming = req.body as CheatSheet
+    const sheet: CheatSheet = {
+      ...incoming,
+      id: incoming.id || await storage.nextCheatSheetSlug(incoming.title),
+    }
     await storage.saveCheatSheet(sheet)
     res.status(201).json(sheet)
   })
@@ -193,7 +201,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
         },
       })
 
-      const id = crypto.randomUUID()
+      const id = await storage.nextManualSlug(converted.title)
 
       // Save original PDF
       if (pdfsDir) {
@@ -310,7 +318,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
       // Convert via Claude (same as PDF flow)
       const converted = await convertToManual(combinedText, url)
 
-      const id = crypto.randomUUID()
+      const id = await storage.nextManualSlug(converted.title)
       const manual = createManual({
         id,
         title: converted.title,
@@ -556,7 +564,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
         if (extracted) {
           const now = new Date().toISOString()
           const sheet = createCheatSheet({
-            id: crypto.randomUUID(),
+            id: await storage.nextCheatSheetSlug(extracted.title),
             title: extracted.title,
             content: extracted.content,
             category: extracted.category,

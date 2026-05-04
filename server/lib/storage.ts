@@ -4,6 +4,7 @@ import type { Manual, StudioData, CheatSheet } from '../../src/types/index'
 import { createStudioData } from '../../src/types/index'
 import { renderManualMarkdown } from './manual-markdown'
 import { renderCheatSheetMarkdown } from './cheatsheet-markdown'
+import { slugify, uniqueSlug } from './slugify'
 
 async function unlinkIfExists(path: string): Promise<void> {
   try {
@@ -69,6 +70,11 @@ export class Storage {
     await unlinkIfExists(join(this.manualsDir, `${id}.md`))
   }
 
+  async nextManualSlug(title: string): Promise<string> {
+    const existing = new Set((await this.listManuals()).map(m => m.id))
+    return uniqueSlug(slugify(title), existing)
+  }
+
   async listManuals(): Promise<Manual[]> {
     const files = await readdir(this.manualsDir)
     const jsonFiles = files.filter(f => f.endsWith('.json'))
@@ -102,6 +108,11 @@ export class Storage {
   async deleteCheatSheet(id: string): Promise<void> {
     await unlinkIfExists(join(this.cheatsheetsDir, `${id}.json`))
     await unlinkIfExists(join(this.cheatsheetsDir, `${id}.md`))
+  }
+
+  async nextCheatSheetSlug(title: string): Promise<string> {
+    const existing = new Set((await this.listCheatSheets()).map(s => s.id))
+    return uniqueSlug(slugify(title), existing)
   }
 
   async listCheatSheets(): Promise<CheatSheet[]> {

@@ -16,7 +16,17 @@ dist-ssr
 .env
 
 # Data (user-specific studio data)
-data/
+# Ignore everything in data/ by default
+data/*
+
+# ...but share the markdown library across instances
+!data/manuals/
+data/manuals/*
+!data/manuals/*.md
+!data/cheatsheets/
+data/cheatsheets/*
+!data/cheatsheets/*.md
+!data/studio.md
 
 # Editor directories and files
 .vscode/*

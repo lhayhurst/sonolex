@@ -461,7 +461,12 @@ export async function createApp(storage: Storage, dataDir?: string) {
       const cheatsheets = await storage.listCheatSheets()
       const currentStudioDoc = await studioDoc.load()
       const studioFilePath = join(resolvedDataDir, 'studio.md')
-      const systemPrompt = buildSystemPrompt(manuals, currentStudioDoc ? studioFilePath : undefined, cheatsheets)
+      const systemPrompt = buildSystemPrompt(
+        manuals,
+        currentStudioDoc ? studioFilePath : undefined,
+        cheatsheets,
+        resolvedDataDir,
+      )
 
       // Build enriched message with context
       let enrichedMessage = message
@@ -495,10 +500,12 @@ export async function createApp(storage: Storage, dataDir?: string) {
         enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nRead it, then use the Edit or Write tool to update it directly. Do NOT output the full document in your response — just describe what you changed.`
       }
 
-      // Allow file tools scoped to the data directory (for studio updates)
-      // Tools are always enabled with the same config so session resume works consistently
+      // Allow file + search tools scoped to the data directory.
+      // Grep and Glob are essential for grounding answers in the markdown sidecars
+      // — without them, Claude falls back on training knowledge instead of the
+      // user's actual manuals.
       const chatOptions = {
-        allowedTools: ['Read', 'Edit', 'Write'],
+        allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob'],
         addDirs: [resolvedDataDir],
         ...(deepThinking ? { effort: 'high' as const } : {}),
       }

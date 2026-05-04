@@ -58,6 +58,20 @@ describe('buildSystemPrompt', () => {
     const prompt = buildSystemPrompt([])
     expect(prompt).toMatch(/no manuals/i)
   })
+
+  it('includes grounding block with grep instructions when dataDir is provided', () => {
+    const prompt = buildSystemPrompt(manuals, undefined, undefined, '/data')
+    expect(prompt).toContain('GROUNDING')
+    expect(prompt).toContain('/data/manuals/*.md')
+    expect(prompt).toContain('/data/cheatsheets/*.md')
+    expect(prompt).toMatch(/grep/i)
+    expect(prompt).toContain('DO NOT answer from training knowledge alone')
+  })
+
+  it('omits grounding block when dataDir is not provided', () => {
+    const prompt = buildSystemPrompt(manuals)
+    expect(prompt).not.toContain('GROUNDING')
+  })
 })
 
 describe('findRelevantManuals', () => {

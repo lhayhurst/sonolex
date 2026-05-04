@@ -199,6 +199,92 @@ describe('Storage', () => {
     })
   })
 
+  describe('markdown sidecars', () => {
+    beforeEach(async () => {
+      await storage.init()
+    })
+
+    it('writes a .md sidecar when saving a manual', async () => {
+      await storage.saveManual(createManual({
+        id: 'sidecar-test',
+        title: 'Sidecar Test',
+        content: 'unused for sidecar',
+        sections: [{ heading: 'Intro', content: 'Body text', level: 1 }],
+      }))
+
+      const { readFile } = await import('node:fs/promises')
+      const md = await readFile(join(tempDir, 'manuals', 'sidecar-test.md'), 'utf-8')
+      expect(md).toContain('id: sidecar-test')
+      expect(md).toContain('title: "Sidecar Test"')
+      expect(md).toContain('# Intro')
+      expect(md).toContain('Body text')
+    })
+
+    it('removes the .md sidecar when deleting a manual', async () => {
+      await storage.saveManual(createManual({ id: 'rm-test', title: 'Remove Me', content: 'x' }))
+      await storage.deleteManual('rm-test')
+
+      const { access } = await import('node:fs/promises')
+      await expect(access(join(tempDir, 'manuals', 'rm-test.md'))).rejects.toThrow()
+      await expect(access(join(tempDir, 'manuals', 'rm-test.json'))).rejects.toThrow()
+    })
+
+    it('writes a .md sidecar when saving a cheat sheet', async () => {
+      await storage.saveCheatSheet({
+        id: 'cs-1',
+        title: 'Drop Setup',
+        content: 'Plug it in.',
+        category: 'signal-routing',
+        tags: ['drop'],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+
+      const { readFile } = await import('node:fs/promises')
+      const md = await readFile(join(tempDir, 'cheatsheets', 'cs-1.md'), 'utf-8')
+      expect(md).toContain('id: cs-1')
+      expect(md).toContain('title: "Drop Setup"')
+      expect(md).toContain('category: signal-routing')
+      expect(md).toContain('tags: [drop]')
+      expect(md).toContain('Plug it in.')
+    })
+
+    it('removes the .md sidecar when deleting a cheat sheet', async () => {
+      await storage.saveCheatSheet({
+        id: 'cs-rm',
+        title: 'Bye',
+        content: 'x',
+        category: 'other',
+        tags: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+      await storage.deleteCheatSheet('cs-rm')
+
+      const { access } = await import('node:fs/promises')
+      await expect(access(join(tempDir, 'cheatsheets', 'cs-rm.md'))).rejects.toThrow()
+      await expect(access(join(tempDir, 'cheatsheets', 'cs-rm.json'))).rejects.toThrow()
+    })
+
+    it('list operations ignore .md files', async () => {
+      await storage.saveManual(createManual({ id: 'ml-1', title: 'M1', content: 'x' }))
+      await storage.saveCheatSheet({
+        id: 'csl-1',
+        title: 'CS1',
+        content: 'x',
+        category: 'other',
+        tags: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      })
+
+      const manuals = await storage.listManuals()
+      const sheets = await storage.listCheatSheets()
+      expect(manuals).toHaveLength(1)
+      expect(sheets).toHaveLength(1)
+    })
+  })
+
   describe('cheatsheet tag normalization', () => {
     it('defaults tags to empty array when null in stored JSON', async () => {
       const csDir = join(tempDir, 'cheatsheets')

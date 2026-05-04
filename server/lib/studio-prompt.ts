@@ -1,6 +1,12 @@
+import { join } from 'node:path'
 import type { Manual, CheatSheet } from '../../src/types/index'
 
-export function buildSystemPrompt(manuals: Manual[], studioDocPath?: string, cheatsheets?: CheatSheet[]): string {
+export function buildSystemPrompt(
+  manuals: Manual[],
+  studioDocPath?: string,
+  cheatsheets?: CheatSheet[],
+  dataDir?: string,
+): string {
   if (manuals.length === 0 && (!cheatsheets || cheatsheets.length === 0)) {
     return `You are a music studio assistant. The user has no manuals uploaded yet. Help them get started by suggesting they upload their equipment manuals.`
   }
@@ -22,11 +28,36 @@ ${sectionList}`
       cheatsheets.map(cs => `- "${cs.title}" [${cs.category}] tags: ${cs.tags.join(', ')}`).join('\n')
     : ''
 
+  const manualsDir = dataDir ? join(dataDir, 'manuals') : undefined
+  const cheatsheetsDir = dataDir ? join(dataDir, 'cheatsheets') : undefined
+
+  const groundingBlock = manualsDir && cheatsheetsDir
+    ? `
+
+GROUNDING — READ THIS BEFORE EVERY ANSWER
+
+The user's library lives in markdown files on disk:
+- Manuals:     ${manualsDir}/*.md
+- Cheatsheets: ${cheatsheetsDir}/*.md
+- Studio doc:  ${studioDocPath ?? '(none yet)'}
+
+Each .md file has a YAML frontmatter block (id, title, tags) followed by the full content. Filenames are UUIDs or slugs — match by frontmatter title, not filename.
+
+Before answering ANY factual question about the user's gear, signal flow, MIDI mappings, or saved cheat sheets, use Grep across these directories for the key nouns from the user's question. Then Read the matching files.
+
+Examples:
+- User asks about "Drop arpeggiator" → Grep for "arpeggio" in ${manualsDir}, Read the matching manual.
+- User asks "what cheatsheets do I have for Ableton?" → Grep for "ableton" in ${cheatsheetsDir}.
+- User asks about MIDI CCs on the Monolit → Grep for "Monolit" + "CC" in ${manualsDir}.
+
+DO NOT answer from training knowledge alone. If you have not read the relevant manual section in this turn, you cannot answer specifics. The OP-1 Field is not the OP-1; the Drop is not a generic MIDI controller; the user's Clean settings are not a generic compressor's. Always ground in the actual files.
+
+If grep finds nothing, say so explicitly rather than guessing.`
+    : ''
+
   return `You are a music studio assistant helping the user understand and connect their equipment. You have knowledge of the following gear from their uploaded manuals:
 
-${manualSummaries}${cheatsheetSummaries}
-
-When the user asks about a specific device, you may receive the full manual content for that device in the message. Use it to give detailed, accurate answers about MIDI CCs, signal routing, specifications, and configuration.
+${manualSummaries}${cheatsheetSummaries}${groundingBlock}
 
 Your goal is to help the user:
 - Understand their gear's capabilities

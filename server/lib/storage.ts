@@ -2,6 +2,16 @@ import { readFile, writeFile, readdir, mkdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Manual, StudioData, CheatSheet } from '../../src/types/index'
 import { createStudioData } from '../../src/types/index'
+import { renderManualMarkdown } from './manual-markdown'
+import { renderCheatSheetMarkdown } from './cheatsheet-markdown'
+
+async function unlinkIfExists(path: string): Promise<void> {
+  try {
+    await unlink(path)
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+  }
+}
 
 export class Storage {
   private readonly dataDir: string
@@ -48,17 +58,15 @@ export class Storage {
   }
 
   async saveManual(manual: Manual): Promise<void> {
-    const path = join(this.manualsDir, `${manual.id}.json`)
-    await writeFile(path, JSON.stringify(manual, null, 2), 'utf-8')
+    const jsonPath = join(this.manualsDir, `${manual.id}.json`)
+    const mdPath = join(this.manualsDir, `${manual.id}.md`)
+    await writeFile(jsonPath, JSON.stringify(manual, null, 2), 'utf-8')
+    await writeFile(mdPath, renderManualMarkdown(manual), 'utf-8')
   }
 
   async deleteManual(id: string): Promise<void> {
-    const path = join(this.manualsDir, `${id}.json`)
-    try {
-      await unlink(path)
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
-    }
+    await unlinkIfExists(join(this.manualsDir, `${id}.json`))
+    await unlinkIfExists(join(this.manualsDir, `${id}.md`))
   }
 
   async listManuals(): Promise<Manual[]> {
@@ -85,17 +93,15 @@ export class Storage {
   }
 
   async saveCheatSheet(cheatsheet: CheatSheet): Promise<void> {
-    const path = join(this.cheatsheetsDir, `${cheatsheet.id}.json`)
-    await writeFile(path, JSON.stringify(cheatsheet, null, 2), 'utf-8')
+    const jsonPath = join(this.cheatsheetsDir, `${cheatsheet.id}.json`)
+    const mdPath = join(this.cheatsheetsDir, `${cheatsheet.id}.md`)
+    await writeFile(jsonPath, JSON.stringify(cheatsheet, null, 2), 'utf-8')
+    await writeFile(mdPath, renderCheatSheetMarkdown(cheatsheet), 'utf-8')
   }
 
   async deleteCheatSheet(id: string): Promise<void> {
-    const path = join(this.cheatsheetsDir, `${id}.json`)
-    try {
-      await unlink(path)
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
-    }
+    await unlinkIfExists(join(this.cheatsheetsDir, `${id}.json`))
+    await unlinkIfExists(join(this.cheatsheetsDir, `${id}.md`))
   }
 
   async listCheatSheets(): Promise<CheatSheet[]> {

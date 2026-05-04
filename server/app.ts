@@ -14,7 +14,7 @@ import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { extractCheatSheet } from './lib/cheatsheet-extractor'
-import { QmdStore, buildQmdMcpConfig, QMD_MCP_TOOLS } from './lib/qmd-store'
+import { QmdStore, buildQmdMcpConfig, QMD_MCP_TOOLS, BLOCKED_BUILTIN_TOOLS } from './lib/qmd-store'
 import { createManual, createCheatSheet } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
@@ -524,11 +524,15 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
       // Tool surface: QMD MCP for library access (mcp__qmd__query for search,
       // mcp__qmd__get for fetching specific docs by path), plus Edit/Write
-      // for studio.md updates only. Read/Grep/Glob are deliberately omitted
-      // — the forcing function for the grounding experiment is that Claude
-      // has NO alternative path to library content other than qmd_query.
+      // for studio.md updates only.
+      //
+      // CRITICAL: in -p mode, --allowedTools is auto-approve, not restriction.
+      // To actually keep Claude away from Read/Grep/Glob/Bash etc — the
+      // alternative paths that would let it bypass QMD — we must explicitly
+      // disallow them. Without this the forcing function is decorative.
       const chatOptions = {
         allowedTools: [...QMD_MCP_TOOLS, 'Edit', 'Write'],
+        disallowedTools: [...BLOCKED_BUILTIN_TOOLS],
         addDirs: [resolvedDataDir],
         mcpConfig: buildQmdMcpConfig(),
         ...(deepThinking ? { effort: 'high' as const } : {}),

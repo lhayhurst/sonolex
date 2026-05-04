@@ -18,7 +18,11 @@ export async function* runClaudeStream(
   }
 
   if (options?.allowedTools?.length) {
-    args.push('--allowedTools', ...options.allowedTools)
+    args.push('--allowedTools', options.allowedTools.join(','))
+  }
+
+  if (options?.disallowedTools?.length) {
+    args.push('--disallowedTools', options.disallowedTools.join(','))
   }
 
   if (options?.addDirs?.length) {

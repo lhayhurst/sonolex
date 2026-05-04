@@ -675,9 +675,14 @@ describe('API routes', () => {
         expect.stringContaining('studio.md'),
         expect.objectContaining({
           // QMD-only mode: library access is via mcp__qmd__*. Edit/Write
-          // remain only for the studio.md update path. No Read/Grep/Glob.
+          // remain only for the studio.md update path.
           allowedTools: expect.arrayContaining([
             'mcp__qmd__query', 'mcp__qmd__get', 'Edit', 'Write',
+          ]),
+          // The disallow list is the actual forcing function in -p mode
+          // — without it, --allowedTools is just auto-approve.
+          disallowedTools: expect.arrayContaining([
+            'Bash', 'Read', 'Grep', 'Glob', 'ToolSearch',
           ]),
         }),
       )

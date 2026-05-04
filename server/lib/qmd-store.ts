@@ -231,3 +231,40 @@ export const QMD_MCP_TOOLS = [
   'mcp__qmd__status',
 ] as const
 
+// Built-in Claude Code tools we explicitly deny in QMD-only chat mode.
+// In `-p` (print) mode, --allowedTools functions as auto-approve, NOT
+// restriction; the only way to actually keep tools out of Claude's hands
+// is --disallowedTools. We list everything we don't want — long but
+// honest. Notably ToolSearch is critical to deny: if Claude can call it,
+// it can load arbitrary deferred tools and bypass any restriction.
+//
+// Edit and Write are intentionally absent (they remain available for
+// the studio.md update flow).
+export const BLOCKED_BUILTIN_TOOLS = [
+  'Bash',
+  'Read',
+  'Grep',
+  'Glob',
+  'Task',
+  'NotebookEdit',
+  'WebSearch',
+  'WebFetch',
+  'ToolSearch',
+  'TodoWrite',
+  'ScheduleWakeup',
+  'Skill',
+  'Monitor',
+  'TaskStop',
+  'TaskOutput',
+  'AskUserQuestion',
+  'EnterPlanMode',
+  'ExitPlanMode',
+  'EnterWorktree',
+  'ExitWorktree',
+  'PushNotification',
+  'RemoteTrigger',
+  'CronCreate',
+  'CronDelete',
+  'CronList',
+] as const
+

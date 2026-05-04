@@ -521,7 +521,7 @@
     <div class="container">
       <span class="hero-badge">Open Source</span>
       <h1>Know your <em>studio</em></h1>
-      <p>Upload your equipment manuals. Chat with Claude about your gear. Build a living document of your entire setup.</p>
+      <p>Upload your equipment manuals. Chat with Claude — grounded in your actual library, not its training data. Build a living document of your entire setup.</p>
       <div class="hero-actions">
         <a href="#get-started" class="btn btn-primary">Get started</a>
         <a href="https://github.com/lhayhurst/sonolex" class="btn btn-secondary">View on GitHub</a>
@@ -602,9 +602,15 @@
           <p>Upload equipment PDFs or paste a docs URL — Claude crawls the site, extracts content, and structures it into searchable sections. Handles large manuals by chunking automatically.</p>
         </div>
         <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Grounded Answers, Not Guesses</h3>
+          <p>Claude only answers from your actual library via local semantic search. Every claim is cited; if there's no source, Claude says so instead of inventing one. Powered by <a href="https://github.com/tobi/qmd" style="color: var(--accent); text-decoration: none;">QMD</a> running entirely on your machine.</p>
+        </div>
+
+        <div class="feature-card">
           <div class="feature-icon">💬</div>
           <h3>Multi-Session Chat</h3>
-          <p>Multiple named chat sessions, each with full context. Mention a device and Claude loads that manual. Paste images directly into chat. Type ahead while Claude thinks.</p>
+          <p>Multiple named chat sessions, each with full context. Tool-use chips show what Claude is searching for in real time. Paste images directly into chat. Type ahead while Claude thinks.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🔌</div>
@@ -625,6 +631,12 @@
           <div class="feature-icon">📊</div>
           <h3>Real-Time Progress</h3>
           <p>Live streaming progress for every import — page-by-page crawl counts, chunk-by-chunk conversion. No more staring at indeterminate spinners.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📚</div>
+          <h3>Shareable Markdown Library</h3>
+          <p>Manuals and cheatsheets are stored as human-readable markdown with slug-based filenames. The library is checked into git — sync your knowledge base across machines or share it with collaborators.</p>
         </div>
       </div>
     </div>
@@ -659,7 +671,7 @@
   <section class="get-started" id="get-started">
     <div class="container">
       <h2>Get started in 60 seconds</h2>
-      <p>Requires Node.js 18+ and a Claude subscription (Pro, Max, or Team).</p>
+      <p>Requires Node.js 22+ and a Claude subscription (Pro, Max, or Team). First chat downloads ~2GB of local search models.</p>
       <div class="install-steps">
         <div class="install-step">
           <div class="install-step-label">1. Install Claude Code CLI</div>

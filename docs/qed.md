@@ -172,13 +172,28 @@ A hieroglyphic strip of badges that externalizes the LLM's work in real
 time. Each badge clickable for detail. The strip itself is a chronological
 log of how the response was built.
 
-| Badge | Meaning | Triggered by | Detail |
-|---|---|---|---|
-| **🔍 Q (Querying)** | searching the local library | `qmd_query` tool call starts | the query string + intent |
-| **🧠 E (Evaluating)** | reasoning, weighing evidence | thinking-block stream begins | the thinking text |
-| **✍️ D (Designing)** | generating user-facing content | text-delta stream begins | (passive — text appears in the message itself) |
-| **💎 G (Grounded)** | factual claim with valid citation | parsed citation in output text | source slug + section, click to open |
-| **⚠️ I (Inferred)** | factual claim **without** citation | unmatched assertion in output text | "this assertion has no retrieved source" |
+Badges divide into three families — see
+[feedback-badges-plan.md](./feedback-badges-plan.md) for the full
+taxonomy:
+
+**Cognition** (what Claude is doing internally):
+- **🧠 E (Evaluating)** — thinking-block stream
+- **✍️ D (Designing)** — text-delta stream
+
+**External action** (what Claude is reaching out to, distinguished by
+blast radius):
+- **🔍 Q (Querying)** — local library via QMD
+- **🔌 M (MCP)** — non-library MCP server
+- **🐚 B (Bash)** — shell command
+- **🌿 V (Version control)** — git operations (called out separately
+  from Bash because git push/commit affects shared state)
+- **🌐 N (Network)** — WebSearch / WebFetch
+- **📝 W (Write)** — file mutation (Write/Edit)
+
+**Observable consequences** (derived from output text — drive the
+confidence score):
+- **💎 G (Grounded)** — factual claim with valid citation
+- **⚠️ I (Inferred)** — factual claim without citation
 
 A healthy response on a question the library can answer:
 

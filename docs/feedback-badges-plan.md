@@ -26,13 +26,58 @@ day, by every user.
 
 Four base badges, each with hover/click detail:
 
+The badges divide into three families: **cognition** (what Claude is
+doing internally), **external action** (what Claude is reaching out to),
+and **observable consequences** (what we can verify in the output).
+
+### Cognition badges
+
 | Badge | Meaning | Triggered by | Detail panel shows |
 |---|---|---|---|
-| **🔍 Q (Querying)** | searching the local library | `qmd_search` tool call starts | the query string + intent |
 | **🧠 E (Evaluating)** | reasoning, weighing evidence | thinking-block stream begins | the thinking text |
 | **✍️ D (Designing)** | generating user-facing content | text-delta stream begins | (passive — the text appears in the message itself) |
+
+### External action badges
+
+These distinguish *which kind of system* Claude is touching. Different
+systems have different blast radii — the user cares whether Claude is
+reading their library vs. running a shell command vs. talking to a
+remote MCP service vs. mutating git state.
+
+| Badge | Meaning | Triggered by | Detail panel shows |
+|---|---|---|---|
+| **🔍 Q (Querying)** | searching the local library | `mcp__qmd__*` tool call starts | the query string + intent |
+| **🔌 M (MCP)** | calling a non-library MCP server | any other `mcp__*` tool call | server name, tool name, arguments |
+| **🐚 B (Bash)** | running a shell command | `Bash` tool call starts | the command string |
+| **🌿 V (Version control)** | git operation | `Bash` tool call where the command starts with `git` | the git subcommand and arguments; flagged distinctively because git push/commit affects shared state |
+| **🌐 N (Network)** | reaching out to the internet | `WebSearch` or `WebFetch` tool call | URL or query |
+| **📝 W (Write)** | creating or modifying a file | `Write` or `Edit` tool call | file path + diff summary |
+
+(Read is intentionally *not* a badge — passive observation is the default
+behavior we don't need to single out. If we surfaced one for every Read
+the strip would be saturated. Same logic for trivial helpers like Glob.)
+
+### Observable-consequence badges
+
+These are derived from the assistant's output text, not from tool events.
+They drive the confidence score.
+
+| Badge | Meaning | Triggered by | Detail panel shows |
+|---|---|---|---|
 | **💎 G (Grounded)** | factual claim with valid citation | parsed citation in output text | the source slug + section, with click-through to the manual |
 | **⚠️ I (Inferred)** | factual claim **without** citation | unmatched assertion in output text | a candidate explanation: "this assertion has no retrieved source" |
+
+### Why distinguish so finely
+
+The point of the badge strip is at-a-glance comprehension of *what
+happened*. A response that did "search the library, think, write" looks
+very different from one that did "ssh somewhere, run a script, commit
+to git, push." Same color blob in both cases conveys nothing; distinct
+glyphs convey everything.
+
+It also matters for trust. A user reading a response laden with **🐚🌿**
+badges should know to inspect what got executed; a response that's pure
+**🔍🧠✍️💎** is read-only and grounded — much lower stakes.
 
 The strip reads left-to-right as a literal sequence of operations. A
 healthy response on a question the library can answer might look like:

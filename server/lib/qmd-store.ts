@@ -5,6 +5,7 @@
 // interface even if we swap search engines later.
 
 import { join, basename, extname, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 // Type-only import — erased at runtime so vitest workers (and any code
 // that only uses translation helpers) don't have to load QMD's native
 // dependencies. The runtime import is dynamic, inside init().
@@ -106,7 +107,11 @@ export class QmdStore {
 
   constructor(opts: QmdStoreOptions) {
     this.dataDir = opts.dataDir
-    this.dbPath = join(opts.dataDir, '.qmd', 'index.sqlite')
+    // Aligned with QMD's XDG-derived default so the QMD MCP subprocess
+    // (spawned by Claude) reads the same DB. server/index.ts sets
+    // XDG_CACHE_HOME = <dataDir>/.qmd-cache; QMD then defaults to
+    // <XDG>/qmd/index.sqlite — which is what we open here.
+    this.dbPath = join(opts.dataDir, '.qmd-cache', 'qmd', 'index.sqlite')
   }
 
   // Idempotent: safe to call multiple times. Concurrent callers share the
@@ -184,4 +189,45 @@ export class QmdStore {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// MCP config helper.
+//
+// Claude can't call our in-process QmdStore directly. We expose QMD search
+// to Claude by spawning QMD's bundled MCP server as a stdio subprocess and
+// passing its config to the Claude CLI via --mcp-config. The subprocess
+// inherits XDG_CACHE_HOME from our backend, so it reads the same SQLite
+// our embedded QmdStore writes.
+// ---------------------------------------------------------------------------
+
+export function buildQmdMcpConfig(): string {
+  // Bypass qmd's shell wrapper (which prefers bun if bun.lock is present
+  // and the user might not have bun installed). Invoke the JS entrypoint
+  // directly with the same node we're running under. Subprocess inherits
+  // XDG_CACHE_HOME from us, so it reads our SQLite.
+  //
+  // QMD's package.json `exports` only declares the `import` condition
+  // (ESM-only), so createRequire().resolve() can't find it. Use the
+  // ESM-native import.meta.resolve, then derive the CLI path next to
+  // the resolved main module since `exports` doesn't expose subpaths.
+  const indexPath = fileURLToPath(import.meta.resolve('@tobilu/qmd'))
+  const cliPath = join(dirname(indexPath), 'cli', 'qmd.js')
+  return JSON.stringify({
+    mcpServers: {
+      qmd: {
+        command: process.execPath, // current node binary
+        args: [cliPath, 'mcp'],
+      },
+    },
+  })
+}
+
+// Tools the qmd MCP server exposes, in Claude-CLI-namespaced form.
+// Used in the chat route's allowedTools list.
+export const QMD_MCP_TOOLS = [
+  'mcp__qmd__query',
+  'mcp__qmd__get',
+  'mcp__qmd__multi_get',
+  'mcp__qmd__status',
+] as const
 

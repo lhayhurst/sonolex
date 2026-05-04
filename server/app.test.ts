@@ -674,7 +674,11 @@ describe('API routes', () => {
       expect(vi.mocked(mockStream)).toHaveBeenCalledWith(
         expect.stringContaining('studio.md'),
         expect.objectContaining({
-          allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob'],
+          // QMD-only mode: library access is via mcp__qmd__*. Edit/Write
+          // remain only for the studio.md update path. No Read/Grep/Glob.
+          allowedTools: expect.arrayContaining([
+            'mcp__qmd__query', 'mcp__qmd__get', 'Edit', 'Write',
+          ]),
         }),
       )
     })

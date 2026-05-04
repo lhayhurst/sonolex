@@ -20,6 +20,11 @@ export interface ClaudeOptions {
   allowedTools?: string[]
   addDirs?: string[]
   effort?: 'high' | 'max'
+  // MCP server config (raw JSON or file path) passed via --mcp-config.
+  // When set, --strict-mcp-config restricts Claude to only these servers
+  // — keeps the QMD-only forcing function honest by preventing the
+  // user's globally-configured MCP servers from leaking in.
+  mcpConfig?: string
 }
 
 export function stripMarkdownFences(text: string): string {
@@ -44,6 +49,10 @@ export async function runClaude(prompt: string, options?: ClaudeOptions): Promis
       for (const dir of options.addDirs) {
         args.push('--add-dir', dir)
       }
+    }
+
+    if (options?.mcpConfig) {
+      args.push('--mcp-config', options.mcpConfig, '--strict-mcp-config')
     }
 
     if (options?.resumeSessionId) {

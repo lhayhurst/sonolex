@@ -11,10 +11,10 @@ import { isClaudeAvailable } from './lib/claude-cli'
 import { ConversionHistory } from './lib/conversion-history'
 import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
-import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevantCheatSheets, buildCheatSheetContext } from './lib/studio-prompt'
+import { buildSystemPrompt } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { extractCheatSheet } from './lib/cheatsheet-extractor'
-import { QmdStore } from './lib/qmd-store'
+import { QmdStore, buildQmdMcpConfig, QMD_MCP_TOOLS } from './lib/qmd-store'
 import { createManual, createCheatSheet } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
@@ -493,24 +493,18 @@ export async function createApp(storage: Storage, dataDir?: string) {
         resolvedDataDir,
       )
 
-      // Build enriched message with context
+      // Build enriched message with context.
+      //
+      // QMD-only mode: we deliberately do NOT pre-inject manual or cheatsheet
+      // content here. Claude must call mcp__qmd__query to access the library.
+      // Pre-injection was the previous behavior (substring match → dump) and
+      // is the baseline arm of the experiment described in
+      // docs/qmd-grounding-experiment.md.
       let enrichedMessage = message
 
       // If user pasted an image, tell Claude where to find it
       if (imagePath) {
         enrichedMessage += `\n\n--- Image ---\nThe user has pasted an image. Read it at: ${imagePath}\nDescribe or analyze the image as part of your response.`
-      }
-
-      // Inject relevant manual content if the user mentions a device
-      const relevant = findRelevantManuals(message, manuals)
-      if (relevant.length > 0) {
-        enrichedMessage += '\n\n' + buildManualContext(relevant)
-      }
-
-      // Inject relevant cheat sheet content
-      const relevantSheets = findRelevantCheatSheets(message, cheatsheets)
-      if (relevantSheets.length > 0) {
-        enrichedMessage += '\n\n' + buildCheatSheetContext(relevantSheets)
       }
 
       // If user wants to save a cheat sheet, tell Claude to return it as JSON
@@ -519,19 +513,24 @@ export async function createApp(storage: Storage, dataDir?: string) {
         enrichedMessage += `\n\n--- Cheat Sheet Instructions ---\nTo save a cheat sheet, include a JSON block in your response with this format:\n\`\`\`json\n{"title":"...","content":"<markdown content>","category":"<one of: midi-map, signal-routing, shortcuts, troubleshooting, preset-notes, checklist, quick-reference, other>","tags":["tag1","tag2"]}\n\`\`\`\nThe content field should be markdown with the actual cheat sheet content. The system will automatically save it. Do NOT use the Write tool for cheat sheets.`
       }
 
-      // If user wants to update the studio, tell Claude to edit the file directly
+      // Studio updates still go through Edit/Write directly on studio.md.
+      // That's its own scoped concern — the user's working document, which
+      // Claude is allowed to read and modify in place. Library access is
+      // QMD-only; studio is the one editable surface.
       const wantsStudioUpdate = /\b(update|add|change|modify|integrate|include|remove)\b.*\bstudio\b|\bstudio\b.*\b(update|add|change|modify|integrate|include|remove)\b/i.test(message)
       if (wantsStudioUpdate) {
-        enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nRead it, then use the Edit or Write tool to update it directly. Do NOT output the full document in your response — just describe what you changed.`
+        enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nUse mcp__qmd__get to read its current contents, then use Edit or Write to update it directly. Do NOT output the full document in your response — just describe what you changed.`
       }
 
-      // Allow file + search tools scoped to the data directory.
-      // Grep and Glob are essential for grounding answers in the markdown sidecars
-      // — without them, Claude falls back on training knowledge instead of the
-      // user's actual manuals.
+      // Tool surface: QMD MCP for library access (mcp__qmd__query for search,
+      // mcp__qmd__get for fetching specific docs by path), plus Edit/Write
+      // for studio.md updates only. Read/Grep/Glob are deliberately omitted
+      // — the forcing function for the grounding experiment is that Claude
+      // has NO alternative path to library content other than qmd_query.
       const chatOptions = {
-        allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob'],
+        allowedTools: [...QMD_MCP_TOOLS, 'Edit', 'Write'],
         addDirs: [resolvedDataDir],
+        mcpConfig: buildQmdMcpConfig(),
         ...(deepThinking ? { effort: 'high' as const } : {}),
       }
 

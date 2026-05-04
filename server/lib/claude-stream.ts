@@ -27,6 +27,10 @@ export async function* runClaudeStream(
     }
   }
 
+  if (options?.mcpConfig) {
+    args.push('--mcp-config', options.mcpConfig, '--strict-mcp-config')
+  }
+
   if (options?.resumeSessionId) {
     args.push('--resume', options.resumeSessionId)
   }

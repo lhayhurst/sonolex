@@ -1,17 +1,10 @@
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { createApp } from './app'
 import { Storage } from './lib/storage'
 import { isClaudeAvailable } from './lib/claude-cli'
 
 const PORT = parseInt(process.env.PORT ?? '3011', 10)
 const DATA_DIR = process.env.DATA_DIR ?? join(process.cwd(), 'data')
-
-// Pin QMD's cache root to a path under our data dir so the SQLite
-// index lives with the user's library and the same DB is shared
-// between (a) our embedded QmdStore (does indexing) and (b) the
-// QMD MCP subprocess Claude spawns (does searching). Both inherit
-// this env, both compute the same default `${XDG}/qmd/index.sqlite`.
-process.env.XDG_CACHE_HOME = resolve(DATA_DIR, '.qmd-cache')
 
 // Prevent the server from crashing on unhandled errors
 process.on('uncaughtException', (err) => {

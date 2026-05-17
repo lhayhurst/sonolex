@@ -11,10 +11,9 @@ import { isClaudeAvailable } from './lib/claude-cli'
 import { ConversionHistory } from './lib/conversion-history'
 import { ChatSessionManager } from './lib/chat-session-manager'
 import { StudioDoc } from './lib/studio-doc'
-import { buildSystemPrompt } from './lib/studio-prompt'
+import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevantCheatSheets, buildCheatSheetContext } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { extractCheatSheet } from './lib/cheatsheet-extractor'
-import { QmdStore, buildQmdMcpConfig, QMD_MCP_TOOLS, BLOCKED_BUILTIN_TOOLS } from './lib/qmd-store'
 import { createManual, createCheatSheet } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
@@ -28,41 +27,6 @@ export async function createApp(storage: Storage, dataDir?: string) {
   const sessionManager = new ChatSessionManager(dataDir ?? '.')
   await sessionManager.init()
   const studioDoc = new StudioDoc(dataDir ?? '.')
-
-  // QMD search index. Lazy-init: models load on first search, not on
-  // server boot, so startup stays fast. Storage hooks below trigger a
-  // background reindex whenever the markdown library changes — fire and
-  // forget; failures are logged but don't block the user's save.
-  const qmdStore = new QmdStore({ dataDir: resolvedDataDir })
-  function reindexInBackground(collection: 'manuals' | 'cheatsheets' | 'studio'): void {
-    qmdStore.reindex([collection]).catch(err => {
-      console.error(`QMD reindex(${collection}) failed:`, err)
-    })
-  }
-  storage.setHooks({
-    onManualChange: () => reindexInBackground('manuals'),
-    onCheatSheetChange: () => reindexInBackground('cheatsheets'),
-    onStudioChange: () => reindexInBackground('studio'),
-  })
-
-  // Bootstrap the index. The save hooks only fire on changes — for an
-  // existing library, nothing has changed since the QMD branch shipped,
-  // so the index would stay empty until a user happened to re-save
-  // something. Force one reindex of all collections at boot. Cheap when
-  // up-to-date (QMD only re-scans changed files), populates initially.
-  // Fire and forget — server doesn't block on it — but log loudly so
-  // the user can see it run (or fail) in the dev console.
-  console.log('  QMD bootstrap: scanning collections...')
-  const bootStarted = Date.now()
-  qmdStore.reindex(['manuals', 'cheatsheets', 'studio']).then(r => {
-    const ms = Date.now() - bootStarted
-    console.log(
-      `  QMD bootstrap: indexed ${r.indexed} new, ${r.updated} updated, ` +
-      `${r.unchanged} unchanged, ${r.removed} removed (${ms}ms)`,
-    )
-  }).catch(err => {
-    console.error('  QMD bootstrap FAILED:', err)
-  })
   const app = express()
   app.use(cors())
   app.use(express.json())
@@ -512,18 +476,24 @@ export async function createApp(storage: Storage, dataDir?: string) {
         resolvedDataDir,
       )
 
-      // Build enriched message with context.
-      //
-      // QMD-only mode: we deliberately do NOT pre-inject manual or cheatsheet
-      // content here. Claude must call mcp__qmd__query to access the library.
-      // Pre-injection was the previous behavior (substring match → dump) and
-      // is the baseline arm of the experiment described in
-      // docs/qmd-grounding-experiment.md.
+      // Build enriched message with context
       let enrichedMessage = message
 
       // If user pasted an image, tell Claude where to find it
       if (imagePath) {
         enrichedMessage += `\n\n--- Image ---\nThe user has pasted an image. Read it at: ${imagePath}\nDescribe or analyze the image as part of your response.`
+      }
+
+      // Inject relevant manual content if the user mentions a device
+      const relevant = findRelevantManuals(message, manuals)
+      if (relevant.length > 0) {
+        enrichedMessage += '\n\n' + buildManualContext(relevant)
+      }
+
+      // Inject relevant cheat sheet content
+      const relevantSheets = findRelevantCheatSheets(message, cheatsheets)
+      if (relevantSheets.length > 0) {
+        enrichedMessage += '\n\n' + buildCheatSheetContext(relevantSheets)
       }
 
       // If user wants to save a cheat sheet, tell Claude to return it as JSON
@@ -532,28 +502,19 @@ export async function createApp(storage: Storage, dataDir?: string) {
         enrichedMessage += `\n\n--- Cheat Sheet Instructions ---\nTo save a cheat sheet, include a JSON block in your response with this format:\n\`\`\`json\n{"title":"...","content":"<markdown content>","category":"<one of: midi-map, signal-routing, shortcuts, troubleshooting, preset-notes, checklist, quick-reference, other>","tags":["tag1","tag2"]}\n\`\`\`\nThe content field should be markdown with the actual cheat sheet content. The system will automatically save it. Do NOT use the Write tool for cheat sheets.`
       }
 
-      // Studio updates still go through Edit/Write directly on studio.md.
-      // That's its own scoped concern — the user's working document, which
-      // Claude is allowed to read and modify in place. Library access is
-      // QMD-only; studio is the one editable surface.
+      // If user wants to update the studio, tell Claude to edit the file directly
       const wantsStudioUpdate = /\b(update|add|change|modify|integrate|include|remove)\b.*\bstudio\b|\bstudio\b.*\b(update|add|change|modify|integrate|include|remove)\b/i.test(message)
       if (wantsStudioUpdate) {
-        enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nUse mcp__qmd__get to read its current contents, then use Edit or Write to update it directly. Do NOT output the full document in your response — just describe what you changed.`
+        enrichedMessage += `\n\n--- Instructions ---\nThe studio document is at: ${studioFilePath}\nRead it, then use the Edit or Write tool to update it directly. Do NOT output the full document in your response — just describe what you changed.`
       }
 
-      // Tool surface: QMD MCP for library access (mcp__qmd__query for search,
-      // mcp__qmd__get for fetching specific docs by path), plus Edit/Write
-      // for studio.md updates only.
-      //
-      // CRITICAL: in -p mode, --allowedTools is auto-approve, not restriction.
-      // To actually keep Claude away from Read/Grep/Glob/Bash etc — the
-      // alternative paths that would let it bypass QMD — we must explicitly
-      // disallow them. Without this the forcing function is decorative.
+      // Allow file + search tools scoped to the data directory.
+      // Grep and Glob are essential for grounding answers in the markdown sidecars
+      // — without them, Claude falls back on training knowledge instead of the
+      // user's actual manuals.
       const chatOptions = {
-        allowedTools: [...QMD_MCP_TOOLS, 'Edit', 'Write'],
-        disallowedTools: [...BLOCKED_BUILTIN_TOOLS],
+        allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob'],
         addDirs: [resolvedDataDir],
-        mcpConfig: buildQmdMcpConfig(),
         ...(deepThinking ? { effort: 'high' as const } : {}),
       }
 

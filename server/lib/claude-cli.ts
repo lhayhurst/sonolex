@@ -17,22 +17,9 @@ export interface ClaudeOptions {
   systemPrompt?: string
   resumeSessionId?: string
   disableTools?: boolean
-  // Tools Claude is allowed to use without permission prompting. In -p
-  // mode the workspace trust dialog is skipped, so allowedTools functions
-  // as auto-approve, NOT as restriction. To actually keep tools out of
-  // Claude's hands, use disallowedTools.
   allowedTools?: string[]
-  // Tools Claude cannot use at all. The CLI accepts either variadic args
-  // or a comma-separated single string; the comma form is more reliable
-  // when the list is long. We pass it as a single string.
-  disallowedTools?: string[]
   addDirs?: string[]
   effort?: 'high' | 'max'
-  // MCP server config (raw JSON or file path) passed via --mcp-config.
-  // When set, --strict-mcp-config restricts Claude to only these servers
-  // — keeps the QMD-only forcing function honest by preventing the
-  // user's globally-configured MCP servers from leaking in.
-  mcpConfig?: string
 }
 
 export function stripMarkdownFences(text: string): string {
@@ -50,21 +37,13 @@ export async function runClaude(prompt: string, options?: ClaudeOptions): Promis
     }
 
     if (options?.allowedTools?.length) {
-      args.push('--allowedTools', options.allowedTools.join(','))
-    }
-
-    if (options?.disallowedTools?.length) {
-      args.push('--disallowedTools', options.disallowedTools.join(','))
+      args.push('--allowedTools', ...options.allowedTools)
     }
 
     if (options?.addDirs?.length) {
       for (const dir of options.addDirs) {
         args.push('--add-dir', dir)
       }
-    }
-
-    if (options?.mcpConfig) {
-      args.push('--mcp-config', options.mcpConfig, '--strict-mcp-config')
     }
 
     if (options?.resumeSessionId) {

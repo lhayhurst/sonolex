@@ -31,32 +31,6 @@ describe('buildConversionPrompt', () => {
     const prompt = buildConversionPrompt('text', 'manual.pdf')
     expect(prompt).toMatch(/summary/i)
   })
-
-  it('requires proper GFM table syntax for tabular data', () => {
-    // PDF tables (MIDI CC maps, spec sheets, routing matrices) only
-    // render correctly if Claude emits leading/trailing pipes and a
-    // separator row. "Naked-pipe" tables silently fail in markdown
-    // renderers — explicit format guidance prevents this.
-    const prompt = buildConversionPrompt('text', 'manual.pdf')
-    expect(prompt).toMatch(/\|---\||leading.*pipe|markdown table/i)
-  })
-
-  it('instructs to strip stale "(page N)" cross-references from the source', () => {
-    // PDF text extraction leaves inline references like "(page 52)"
-    // pointing at physical book pagination, useless in the markdown.
-    const prompt = buildConversionPrompt('text', 'manual.pdf')
-    expect(prompt).toMatch(/page.*reference|page.*N|\(page/i)
-    expect(prompt).toMatch(/strip|remove|drop/i)
-  })
-
-  it('forbids duplicate headings at the same level within a document', () => {
-    // PDF extraction often produces repeating chapter titles when
-    // headers/footers leak into the text. Without a heading-uniqueness
-    // rule Claude reproduces them faithfully and the resulting TOC
-    // is a mess.
-    const prompt = buildConversionPrompt('text', 'manual.pdf')
-    expect(prompt).toMatch(/duplicate.*heading|same.*heading|do not repeat/i)
-  })
 })
 
 describe('convertToManual', () => {

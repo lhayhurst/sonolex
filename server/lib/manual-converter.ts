@@ -12,35 +12,19 @@ export interface ConvertedManual {
 const CHUNK_THRESHOLD = 50000 // characters — above this, split into chunks
 
 export function buildConversionPrompt(rawText: string, fileName: string): string {
-  return `You are converting an equipment manual into a structured format. The output will be served to Claude during chat with a musician — clean markdown is critical.
+  return `You are converting an equipment manual into a structured format.
 
 Source file: ${fileName}
 
 Please analyze the following raw text extracted from a PDF manual and return a JSON object with:
-- "title": The equipment name and manual title.
+- "title": The equipment name and manual title
 - "summary": A 2-3 sentence summary of what this device is, what it does, and its key capabilities. Write this for a musician who might not know the device.
-- "sections": An array of section objects ordered as they appear. Each section becomes one markdown heading + body in the final file. Each section has:
-  - "heading": The section heading (no leading "#").
-  - "content": The section body as markdown. See FORMATTING RULES below.
-  - "level": Heading depth (1 for top-level/chapter, 2 for major section, 3 for sub-section, 4 for sub-sub-section). Use real hierarchy.
+- "sections": An array of section objects, each with:
+  - "heading": The section heading
+  - "content": The section content (preserve technical details, MIDI CC numbers, specifications)
+  - "level": The heading depth (1 for top-level, 2 for sub-section, etc.)
 
-# Formatting rules for "content"
-
-Tables — REQUIRED FORMAT. Every tabular block (MIDI CC maps, spec sheets, signal routing matrices, parameter lists, pin-outs) must use proper GitHub Flavored Markdown:
-\`\`\`
-| Header | Header | Header |
-|---|---|---|
-| cell | cell | cell |
-\`\`\`
-Leading and trailing pipes are mandatory. The separator row (\`|---|---|---|\`) is mandatory. Do NOT emit "naked-pipe" tables (\`Header | Header\` with \`---|---\` divider) — they will not render. Every CC table, every spec table, every routing matrix must use proper pipe-fence syntax.
-
-Stale page references — STRIP THEM. The source PDF text contains many inline cross-references to physical book pages, like "(page 52)" or "see page 88". These refer to the printed manual and are useless in the converted markdown. Remove them entirely OR rewrite as section references when the target section is identifiable (e.g. "see § MIDI CC Map"). Never preserve "(page N)" as-is.
-
-# Document-level rules
-
-- Heading uniqueness: NEVER produce two sections with the same heading at the same level. PDF extraction often duplicates chapter titles when headers/footers leak into the text — collapse those, or demote a duplicate into a sub-section, or merge it into the surrounding text.
-- Preserve all technical detail verbatim: MIDI CC numbers, NRPN values, signal routing, pin-outs, audio specs (sample rate, bit depth, impedance), connector types, parameter ranges, default values.
-- Group related material into logical sections; keep MIDI tables, spec tables, and routing diagrams intact within a single section.
+Organize the content into logical sections. Preserve all technical details including MIDI CC maps, specifications, signal routing information, and configuration instructions.
 
 Return ONLY valid JSON, no markdown fences or other text.
 
@@ -49,34 +33,18 @@ ${rawText}`
 }
 
 function buildChunkPrompt(rawText: string, fileName: string, chunkIndex: number, totalChunks: number): string {
-  return `You are converting part of an equipment manual into structured sections. The output will be served to Claude during chat with a musician — clean markdown is critical.
+  return `You are converting part of an equipment manual into structured sections.
 
 Source file: ${fileName}
 This is chunk ${chunkIndex + 1} of ${totalChunks}.
 
 Return a JSON object with:
 - "sections": An array of section objects, each with:
-  - "heading": The section heading (no leading "#").
-  - "content": The section body as markdown. See FORMATTING RULES below.
-  - "level": Heading depth (1 for top-level, 2 for sub-section, 3 for sub-sub-section). Use real hierarchy.
+  - "heading": The section heading
+  - "content": The section content (preserve all technical details, MIDI CC numbers, specifications)
+  - "level": The heading depth (1 for top-level, 2 for sub-section, etc.)
 
-# Formatting rules for "content"
-
-Tables — REQUIRED FORMAT. Every tabular block (MIDI CC maps, spec sheets, signal routing matrices, parameter lists) must use proper GitHub Flavored Markdown with leading/trailing pipes and the \`|---|---|\` separator row:
-\`\`\`
-| Header | Header |
-|---|---|
-| cell | cell |
-\`\`\`
-Naked-pipe tables (\`Header | Header\` with \`---|---\` divider) will NOT render — never emit them.
-
-Stale page references — STRIP THEM. Inline references like "(page 52)" or "see page 88" point to physical book pagination and are useless here. Remove them OR rewrite as section references when identifiable. Never preserve "(page N)" as-is.
-
-Heading uniqueness — never produce two sections with the same heading at the same level. PDF header/footer leakage often duplicates chapter titles — collapse, demote, or merge.
-
-Preserve all technical detail verbatim: MIDI CC numbers, NRPN values, signal routing, pin-outs, audio specs, connector types, parameter ranges, default values.
-
-Return ONLY valid JSON, no markdown fences or other text.
+Preserve all technical details. Return ONLY valid JSON, no markdown fences or other text.
 
 Raw text:
 ${rawText}`

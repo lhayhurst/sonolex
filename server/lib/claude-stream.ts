@@ -18,21 +18,13 @@ export async function* runClaudeStream(
   }
 
   if (options?.allowedTools?.length) {
-    args.push('--allowedTools', options.allowedTools.join(','))
-  }
-
-  if (options?.disallowedTools?.length) {
-    args.push('--disallowedTools', options.disallowedTools.join(','))
+    args.push('--allowedTools', ...options.allowedTools)
   }
 
   if (options?.addDirs?.length) {
     for (const dir of options.addDirs) {
       args.push('--add-dir', dir)
     }
-  }
-
-  if (options?.mcpConfig) {
-    args.push('--mcp-config', options.mcpConfig, '--strict-mcp-config')
   }
 
   if (options?.resumeSessionId) {

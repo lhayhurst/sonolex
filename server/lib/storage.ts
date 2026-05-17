@@ -14,42 +14,17 @@ async function unlinkIfExists(path: string): Promise<void> {
   }
 }
 
-export interface StorageHooks {
-  // Called after a manual is saved or deleted, so external indexes
-  // (e.g. QMD) can re-scan. Optional. Errors are logged but never
-  // surfaced — indexing failures must not break the user's save.
-  onManualChange?: () => Promise<void> | void
-  onCheatSheetChange?: () => Promise<void> | void
-  onStudioChange?: () => Promise<void> | void
-}
-
 export class Storage {
   private readonly dataDir: string
   private readonly manualsDir: string
   private readonly cheatsheetsDir: string
   private readonly studioPath: string
-  private hooks: StorageHooks
 
-  constructor(dataDir: string, hooks: StorageHooks = {}) {
+  constructor(dataDir: string) {
     this.dataDir = dataDir
     this.manualsDir = join(dataDir, 'manuals')
     this.cheatsheetsDir = join(dataDir, 'cheatsheets')
     this.studioPath = join(dataDir, 'studio.json')
-    this.hooks = hooks
-  }
-
-  setHooks(hooks: StorageHooks): void {
-    this.hooks = { ...this.hooks, ...hooks }
-  }
-
-  private async fireHook(name: keyof StorageHooks): Promise<void> {
-    const hook = this.hooks[name]
-    if (!hook) return
-    try {
-      await hook()
-    } catch (err) {
-      console.error(`Storage hook ${name} failed:`, err)
-    }
   }
 
   async init(): Promise<void> {
@@ -70,7 +45,6 @@ export class Storage {
 
   async saveStudio(studio: StudioData): Promise<void> {
     await writeFile(this.studioPath, JSON.stringify(studio, null, 2), 'utf-8')
-    await this.fireHook('onStudioChange')
   }
 
   // --- Manuals ---
@@ -89,13 +63,11 @@ export class Storage {
     const mdPath = join(this.manualsDir, `${manual.id}.md`)
     await writeFile(jsonPath, JSON.stringify(manual, null, 2), 'utf-8')
     await writeFile(mdPath, renderManualMarkdown(manual), 'utf-8')
-    await this.fireHook('onManualChange')
   }
 
   async deleteManual(id: string): Promise<void> {
     await unlinkIfExists(join(this.manualsDir, `${id}.json`))
     await unlinkIfExists(join(this.manualsDir, `${id}.md`))
-    await this.fireHook('onManualChange')
   }
 
   async nextManualSlug(title: string): Promise<string> {
@@ -131,13 +103,11 @@ export class Storage {
     const mdPath = join(this.cheatsheetsDir, `${cheatsheet.id}.md`)
     await writeFile(jsonPath, JSON.stringify(cheatsheet, null, 2), 'utf-8')
     await writeFile(mdPath, renderCheatSheetMarkdown(cheatsheet), 'utf-8')
-    await this.fireHook('onCheatSheetChange')
   }
 
   async deleteCheatSheet(id: string): Promise<void> {
     await unlinkIfExists(join(this.cheatsheetsDir, `${id}.json`))
     await unlinkIfExists(join(this.cheatsheetsDir, `${id}.md`))
-    await this.fireHook('onCheatSheetChange')
   }
 
   async nextCheatSheetSlug(title: string): Promise<string> {

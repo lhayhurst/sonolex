@@ -674,7 +674,7 @@ describe('API routes', () => {
       expect(vi.mocked(mockStream)).toHaveBeenCalledWith(
         expect.stringContaining('studio.md'),
         expect.objectContaining({
-          allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob'],
+          allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob', 'WebSearch'],
         }),
       )
     })

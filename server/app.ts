@@ -513,7 +513,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
       // — without them, Claude falls back on training knowledge instead of the
       // user's actual manuals.
       const chatOptions = {
-        allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob'],
+        allowedTools: ['Read', 'Edit', 'Write', 'Grep', 'Glob', 'WebSearch'],
         addDirs: [resolvedDataDir],
         ...(deepThinking ? { effort: 'high' as const } : {}),
       }

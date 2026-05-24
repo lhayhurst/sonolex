@@ -38,3 +38,6 @@ data/cheatsheets/*
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code runtime artifacts
+.claude/*.lock

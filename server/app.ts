@@ -170,6 +170,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
       const estimatedMs = await history.estimateDuration(text.length)
       res.json({ inputChars: text.length, pageCount, estimatedMs })
     } catch (err: unknown) {
+      console.error('[extract-text]', err)
       res.status(500).json({ error: err instanceof Error ? err.message : 'Text extraction failed' })
     }
   })
@@ -230,6 +231,7 @@ export async function createApp(storage: Storage, dataDir?: string) {
       send({ type: 'done', manual: { ...manual, usage: converted.usage } })
       res.end()
     } catch (err: unknown) {
+      console.error('[upload-pdf]', err)
       const message = err instanceof Error ? err.message : 'Unknown error'
       if (res.headersSent) {
         res.write(JSON.stringify({ type: 'error', message }) + '\n')

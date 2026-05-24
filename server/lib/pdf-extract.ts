@@ -52,6 +52,32 @@ export function layoutItemsToText(items: LayoutItem[], options?: LayoutOptions):
     .join('\n')
 }
 
+interface PdfPageLike {
+  getTextContent(): Promise<{ items: Array<{ str?: string; transform?: number[] }> }>
+}
+
+/**
+ * Pull layout items off a single pdfjs page. On failure, rethrows with the
+ * page number tagged onto the message so upstream errors aren't anonymous.
+ */
+export async function extractItemsFromPage(
+  page: PdfPageLike,
+  pageNum: number,
+  totalPages: number,
+): Promise<LayoutItem[]> {
+  try {
+    const content = await page.getTextContent()
+    return content.items.map(item => ({
+      str: item.str ?? '',
+      x: item.transform?.[4] ?? 0,
+      y: item.transform?.[5] ?? 0,
+    }))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new Error(`[page ${pageNum} of ${totalPages}] ${message}`, { cause: err })
+  }
+}
+
 export async function extractTextFromPdf(buffer: Buffer): Promise<PdfExtractResult> {
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise
@@ -59,15 +85,8 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<PdfExtractResu
   const pages: string[] = []
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i)
-    const content = await page.getTextContent()
-    const layoutItems: LayoutItem[] = content.items.map(
-      (item: { str?: string; transform?: number[] }) => {
-        const str = item.str ?? ''
-        const transform = item.transform ?? [1, 0, 0, 1, 0, 0]
-        return { str, x: transform[4], y: transform[5] }
-      },
-    )
-    pages.push(layoutItemsToText(layoutItems))
+    const items = await extractItemsFromPage(page, i, doc.numPages)
+    pages.push(layoutItemsToText(items))
   }
 
   return {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractTextFromPdf, layoutItemsToText } from './pdf-extract'
+import { extractTextFromPdf, layoutItemsToText, extractItemsFromPage } from './pdf-extract'
 
 // Minimal valid PDF with "Hello World" text
 const MINIMAL_PDF = Buffer.from(
@@ -103,5 +103,53 @@ describe('layoutItemsToText', () => {
       { str: 'World', x: 100, y: 500 },
     ]
     expect(layoutItemsToText(items)).toBe('Hello World')
+  })
+})
+
+describe('extractItemsFromPage', () => {
+  it('returns layout items for a healthy page', async () => {
+    const fakePage = {
+      getTextContent: () =>
+        Promise.resolve({
+          items: [
+            { str: 'Hello', transform: [1, 0, 0, 1, 10, 500] },
+            { str: 'World', transform: [1, 0, 0, 1, 100, 500] },
+          ],
+        }),
+    }
+    const items = await extractItemsFromPage(fakePage, 1, 1)
+    expect(items).toEqual([
+      { str: 'Hello', x: 10, y: 500 },
+      { str: 'World', x: 100, y: 500 },
+    ])
+  })
+
+  it('wraps page errors with page-number context', async () => {
+    const fakePage = {
+      getTextContent: () => Promise.reject(new Error('Error in input stream')),
+    }
+    await expect(extractItemsFromPage(fakePage, 158, 302)).rejects.toThrow(
+      '[page 158 of 302] Error in input stream',
+    )
+  })
+
+  it('preserves the original error as `cause`', async () => {
+    const original = new Error('Error in input stream')
+    const fakePage = { getTextContent: () => Promise.reject(original) }
+    try {
+      await extractItemsFromPage(fakePage, 158, 302)
+      throw new Error('should have thrown')
+    } catch (err) {
+      expect((err as Error).cause).toBe(original)
+    }
+  })
+
+  it('defaults missing transform to origin', async () => {
+    const fakePage = {
+      getTextContent: () =>
+        Promise.resolve({ items: [{ str: 'lonely' }] }),
+    }
+    const items = await extractItemsFromPage(fakePage, 1, 1)
+    expect(items).toEqual([{ str: 'lonely', x: 0, y: 0 }])
   })
 })

@@ -206,6 +206,175 @@ describe('API routes', () => {
     })
   })
 
+  describe('tutorials API', () => {
+    async function seedChatSession(name: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
+      const sessionRes = await request(app)
+        .post('/api/chat/sessions')
+        .send({ name })
+        .set('Content-Type', 'application/json')
+      const id = sessionRes.body.id
+
+      const { writeFile } = await import('node:fs/promises')
+      await writeFile(
+        join(tempDir, 'chats', `${id}.json`),
+        JSON.stringify({ sessionId: 'cli-session-id', messages }, null, 2),
+        'utf-8',
+      )
+      return id
+    }
+
+    describe('GET /api/tutorials', () => {
+      it('returns an empty list initially', async () => {
+        const res = await request(app).get('/api/tutorials')
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual([])
+      })
+
+      it('returns saved tutorials', async () => {
+        const { createTutorial } = await import('../src/types/index')
+        await storage.saveTutorial(createTutorial({ id: 't1', title: 'T1', summary: 's', content: 'x' }))
+        await storage.saveTutorial(createTutorial({ id: 't2', title: 'T2', summary: 's', content: 'x' }))
+
+        const res = await request(app).get('/api/tutorials')
+        expect(res.status).toBe(200)
+        expect(res.body).toHaveLength(2)
+      })
+    })
+
+    describe('GET /api/tutorials/:id', () => {
+      it('returns a tutorial by id', async () => {
+        const { createTutorial } = await import('../src/types/index')
+        await storage.saveTutorial(createTutorial({ id: 'show', title: 'Show', summary: 's', content: 'body' }))
+
+        const res = await request(app).get('/api/tutorials/show')
+        expect(res.status).toBe(200)
+        expect(res.body.title).toBe('Show')
+        expect(res.body.content).toBe('body')
+      })
+
+      it('returns 404 for unknown id', async () => {
+        const res = await request(app).get('/api/tutorials/missing')
+        expect(res.status).toBe(404)
+      })
+    })
+
+    describe('POST /api/tutorials', () => {
+      it('creates a tutorial from the request body, auto-slugging the id', async () => {
+        const res = await request(app)
+          .post('/api/tutorials')
+          .send({ title: 'My New Tutorial', summary: 'Summary', content: '## Step 1\nHi' })
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(201)
+        expect(res.body.id).toBe('my-new-tutorial')
+        expect(res.body.status).toBe('draft')
+        expect(res.body.createdAt).toBeDefined()
+      })
+    })
+
+    describe('PUT /api/tutorials/:id', () => {
+      it('updates an existing tutorial and bumps updatedAt', async () => {
+        const { createTutorial } = await import('../src/types/index')
+        await storage.saveTutorial(createTutorial({ id: 'edit', title: 'Old', summary: 's', content: 'x' }))
+
+        const res = await request(app)
+          .put('/api/tutorials/edit')
+          .send({ title: 'New' })
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(200)
+        expect(res.body.title).toBe('New')
+
+        const reloaded = await storage.loadTutorial('edit')
+        expect(reloaded!.title).toBe('New')
+      })
+
+      it('returns 404 when updating an unknown tutorial', async () => {
+        const res = await request(app)
+          .put('/api/tutorials/missing')
+          .send({ title: 'x' })
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(404)
+      })
+    })
+
+    describe('DELETE /api/tutorials/:id', () => {
+      it('deletes a tutorial', async () => {
+        const { createTutorial } = await import('../src/types/index')
+        await storage.saveTutorial(createTutorial({ id: 'rm', title: 'Bye', summary: 's', content: 'x' }))
+
+        const res = await request(app).delete('/api/tutorials/rm')
+        expect(res.status).toBe(204)
+        expect(await storage.loadTutorial('rm')).toBeUndefined()
+      })
+
+      it('is idempotent for unknown ids', async () => {
+        const res = await request(app).delete('/api/tutorials/never-existed')
+        expect(res.status).toBe(204)
+      })
+    })
+
+    describe('POST /api/tutorials/draft', () => {
+      it('generates a tutorial draft from a chat session', async () => {
+        vi.mocked(runClaude).mockResolvedValueOnce({
+          text: JSON.stringify({
+            title: 'OXI Saga Tutorial',
+            summary: 'Walk through Saga.',
+            content: '## Step 1\n\nOpen the SEQ menu.',
+          }),
+          usage: { inputTokens: 100, outputTokens: 50, costUsd: 0.01, durationMs: 5000 },
+        })
+
+        const chatId = await seedChatSession('OXI Saga Tutorial', [
+          { role: 'user', content: 'walk me through saga' },
+          { role: 'assistant', content: 'Step 1: open the seq menu.' },
+        ])
+
+        const res = await request(app)
+          .post('/api/tutorials/draft')
+          .send({ chatSessionId: chatId })
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(201)
+        expect(res.body.title).toBe('OXI Saga Tutorial')
+        expect(res.body.summary).toBe('Walk through Saga.')
+        expect(res.body.content).toContain('Open the SEQ menu')
+        expect(res.body.status).toBe('draft')
+        expect(res.body.chatSessionId).toBe(chatId)
+        expect(res.body.id).toBeDefined()
+      })
+
+      it('returns 404 when chatSessionId does not exist', async () => {
+        const res = await request(app)
+          .post('/api/tutorials/draft')
+          .send({ chatSessionId: 'no-such-session' })
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(404)
+      })
+
+      it('returns 400 when chatSessionId is missing', async () => {
+        const res = await request(app)
+          .post('/api/tutorials/draft')
+          .send({})
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(400)
+      })
+
+      it('returns 400 when chat session has no messages', async () => {
+        const chatId = await seedChatSession('Empty', [])
+        const res = await request(app)
+          .post('/api/tutorials/draft')
+          .send({ chatSessionId: chatId })
+          .set('Content-Type', 'application/json')
+
+        expect(res.status).toBe(400)
+      })
+    })
+  })
+
   // Minimal valid PDF for upload tests
   const MINIMAL_PDF = Buffer.from(
     '%PDF-1.0\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n' +

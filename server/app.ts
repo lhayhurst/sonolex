@@ -14,8 +14,9 @@ import { StudioDoc } from './lib/studio-doc'
 import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevantCheatSheets, buildCheatSheetContext } from './lib/studio-prompt'
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { extractCheatSheet } from './lib/cheatsheet-extractor'
-import { createManual, createCheatSheet } from '../src/types/index'
-import type { StudioData, Manual, CheatSheet } from '../src/types/index'
+import { generateTutorial } from './lib/tutorial-generator'
+import { createManual, createCheatSheet, createTutorial } from '../src/types/index'
+import type { StudioData, Manual, CheatSheet, Tutorial } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } })
@@ -156,6 +157,98 @@ export async function createApp(storage: Storage, dataDir?: string) {
 
   app.delete('/api/cheatsheets/:id', async (req, res) => {
     await storage.deleteCheatSheet(req.params.id)
+    res.status(204).send()
+  })
+
+  // --- Tutorials ---
+
+  app.get('/api/tutorials', async (_req, res) => {
+    const tutorials = await storage.listTutorials()
+    res.json(tutorials)
+  })
+
+  app.get('/api/tutorials/:id', async (req, res) => {
+    const tutorial = await storage.loadTutorial(req.params.id)
+    if (!tutorial) {
+      res.status(404).json({ error: 'Tutorial not found' })
+      return
+    }
+    res.json(tutorial)
+  })
+
+  app.post('/api/tutorials', async (req, res) => {
+    const incoming = req.body as Partial<Tutorial> & { title: string }
+    const id = incoming.id || (await storage.nextTutorialSlug(incoming.title))
+    const tutorial = createTutorial({
+      id,
+      title: incoming.title,
+      summary: incoming.summary ?? '',
+      content: incoming.content ?? '',
+      status: incoming.status,
+      chatSessionId: incoming.chatSessionId,
+    })
+    await storage.saveTutorial(tutorial)
+    res.status(201).json(tutorial)
+  })
+
+  app.post('/api/tutorials/draft', async (req, res) => {
+    const { chatSessionId } = (req.body ?? {}) as { chatSessionId?: string }
+    if (!chatSessionId) {
+      res.status(400).json({ error: 'chatSessionId is required' })
+      return
+    }
+
+    const sessions = await sessionManager.listSessions()
+    const info = sessions.find(s => s.id === chatSessionId)
+    if (!info) {
+      res.status(404).json({ error: 'Chat session not found' })
+      return
+    }
+
+    const session = sessionManager.getSession(chatSessionId)
+    const messages = (await session?.getHistory()) ?? []
+    if (messages.length === 0) {
+      res.status(400).json({ error: 'Chat session has no messages to draft from' })
+      return
+    }
+
+    try {
+      const generated = await generateTutorial(messages, info.name)
+      const id = await storage.nextTutorialSlug(generated.title)
+      const tutorial = createTutorial({
+        id,
+        title: generated.title,
+        summary: generated.summary,
+        content: generated.content,
+        chatSessionId,
+      })
+      await storage.saveTutorial(tutorial)
+      res.status(201).json({ ...tutorial, usage: generated.usage })
+    } catch (err: unknown) {
+      console.error('[tutorials/draft]', err)
+      const message = err instanceof Error ? err.message : 'Tutorial generation failed'
+      res.status(500).json({ error: message })
+    }
+  })
+
+  app.put('/api/tutorials/:id', async (req, res) => {
+    const existing = await storage.loadTutorial(req.params.id)
+    if (!existing) {
+      res.status(404).json({ error: 'Tutorial not found' })
+      return
+    }
+    const updated: Tutorial = {
+      ...existing,
+      ...req.body,
+      id: req.params.id,
+      updatedAt: new Date().toISOString(),
+    }
+    await storage.saveTutorial(updated)
+    res.json(updated)
+  })
+
+  app.delete('/api/tutorials/:id', async (req, res) => {
+    await storage.deleteTutorial(req.params.id)
     res.status(204).send()
   })
 

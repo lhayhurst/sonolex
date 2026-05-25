@@ -1,9 +1,10 @@
 import { readFile, writeFile, readdir, mkdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Manual, StudioData, CheatSheet } from '../../src/types/index'
+import type { Manual, StudioData, CheatSheet, Tutorial } from '../../src/types/index'
 import { createStudioData } from '../../src/types/index'
 import { renderManualMarkdown } from './manual-markdown'
 import { renderCheatSheetMarkdown } from './cheatsheet-markdown'
+import { renderTutorialMarkdown } from './tutorial-markdown'
 import { slugify, uniqueSlug } from './slugify'
 
 async function unlinkIfExists(path: string): Promise<void> {
@@ -18,18 +19,21 @@ export class Storage {
   private readonly dataDir: string
   private readonly manualsDir: string
   private readonly cheatsheetsDir: string
+  private readonly tutorialsDir: string
   private readonly studioPath: string
 
   constructor(dataDir: string) {
     this.dataDir = dataDir
     this.manualsDir = join(dataDir, 'manuals')
     this.cheatsheetsDir = join(dataDir, 'cheatsheets')
+    this.tutorialsDir = join(dataDir, 'tutorials')
     this.studioPath = join(dataDir, 'studio.json')
   }
 
   async init(): Promise<void> {
     await mkdir(this.manualsDir, { recursive: true })
     await mkdir(this.cheatsheetsDir, { recursive: true })
+    await mkdir(this.tutorialsDir, { recursive: true })
 
     const exists = await this.fileExists(this.studioPath)
     if (!exists) {
@@ -137,6 +141,62 @@ export class Storage {
       tags: Array.isArray(data.tags) ? data.tags : [],
       createdAt: (data.createdAt as string) || new Date().toISOString(),
       updatedAt: (data.updatedAt as string) || new Date().toISOString(),
+    }
+  }
+
+  // --- Tutorials ---
+
+  async loadTutorial(id: string): Promise<Tutorial | undefined> {
+    const path = join(this.tutorialsDir, `${id}.json`)
+    const exists = await this.fileExists(path)
+    if (!exists) return undefined
+
+    const raw = await readFile(path, 'utf-8')
+    return this.normalizeTutorial(JSON.parse(raw), `${id}.json`)
+  }
+
+  async saveTutorial(tutorial: Tutorial): Promise<void> {
+    const jsonPath = join(this.tutorialsDir, `${tutorial.id}.json`)
+    const mdPath = join(this.tutorialsDir, `${tutorial.id}.md`)
+    await writeFile(jsonPath, JSON.stringify(tutorial, null, 2), 'utf-8')
+    await writeFile(mdPath, renderTutorialMarkdown(tutorial), 'utf-8')
+  }
+
+  async deleteTutorial(id: string): Promise<void> {
+    await unlinkIfExists(join(this.tutorialsDir, `${id}.json`))
+    await unlinkIfExists(join(this.tutorialsDir, `${id}.md`))
+  }
+
+  async nextTutorialSlug(title: string): Promise<string> {
+    const existing = new Set((await this.listTutorials()).map(t => t.id))
+    return uniqueSlug(slugify(title), existing)
+  }
+
+  async listTutorials(): Promise<Tutorial[]> {
+    const files = await readdir(this.tutorialsDir)
+    const jsonFiles = files.filter(f => f.endsWith('.json'))
+
+    const tutorials: Tutorial[] = []
+    for (const file of jsonFiles) {
+      const raw = await readFile(join(this.tutorialsDir, file), 'utf-8')
+      tutorials.push(this.normalizeTutorial(JSON.parse(raw), file))
+    }
+    return tutorials
+  }
+
+  private normalizeTutorial(data: Record<string, unknown>, filename?: string): Tutorial {
+    const id = (data.id as string) || filename?.replace('.json', '') || ''
+    const status = (data.status as Tutorial['status']) === 'published' ? 'published' : 'draft'
+    return {
+      id,
+      title: (data.title as string) || 'Untitled',
+      summary: (data.summary as string) || '',
+      content: (data.content as string) || '',
+      status,
+      chatSessionId: (data.chatSessionId as string) || undefined,
+      createdAt: (data.createdAt as string) || new Date().toISOString(),
+      updatedAt: (data.updatedAt as string) || new Date().toISOString(),
+      publishedAt: (data.publishedAt as string) || undefined,
     }
   }
 

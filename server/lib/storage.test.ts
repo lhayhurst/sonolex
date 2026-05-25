@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Storage } from './storage'
-import { createDevice, createConnection, createManual, createStudioData } from '../../src/types/index'
+import { createDevice, createConnection, createManual, createStudioData, createTutorial } from '../../src/types/index'
 
 describe('Storage', () => {
   let tempDir: string
@@ -327,6 +327,121 @@ describe('Storage', () => {
       const sheet = await storage.loadCheatSheet('notags')
       expect(sheet).toBeDefined()
       expect(sheet!.tags).toEqual([])
+    })
+  })
+
+  describe('tutorials', () => {
+    beforeEach(async () => {
+      await storage.init()
+    })
+
+    it('creates a tutorials directory on init', async () => {
+      const { readdir } = await import('node:fs/promises')
+      const entries = await readdir(tempDir)
+      expect(entries).toContain('tutorials')
+    })
+
+    it('saves and loads a tutorial', async () => {
+      const tutorial = createTutorial({
+        id: 'oxi-saga',
+        title: 'OXI Saga',
+        summary: 'Walk through Saga.',
+        content: '## Step 1\n\nDo the thing.',
+        chatSessionId: 'chat-1',
+      })
+      await storage.saveTutorial(tutorial)
+
+      const loaded = await storage.loadTutorial('oxi-saga')
+      expect(loaded).toBeDefined()
+      expect(loaded!.title).toBe('OXI Saga')
+      expect(loaded!.status).toBe('draft')
+      expect(loaded!.chatSessionId).toBe('chat-1')
+      expect(loaded!.content).toContain('Step 1')
+    })
+
+    it('returns undefined when loading an unknown tutorial', async () => {
+      expect(await storage.loadTutorial('nope')).toBeUndefined()
+    })
+
+    it('writes a .md sidecar when saving a tutorial', async () => {
+      await storage.saveTutorial(
+        createTutorial({
+          id: 'side-1',
+          title: 'Sidecar Test',
+          summary: 'Sidecar summary.',
+          content: 'Body.',
+        }),
+      )
+
+      const { readFile } = await import('node:fs/promises')
+      const md = await readFile(join(tempDir, 'tutorials', 'side-1.md'), 'utf-8')
+      expect(md).toContain('id: side-1')
+      expect(md).toContain('title: "Sidecar Test"')
+      expect(md).toContain('summary: "Sidecar summary."')
+      expect(md).toContain('status: draft')
+      expect(md).toContain('Body.')
+    })
+
+    it('removes both files when deleting a tutorial', async () => {
+      await storage.saveTutorial(
+        createTutorial({ id: 'rm-tut', title: 'Bye', summary: 's', content: 'x' }),
+      )
+      await storage.deleteTutorial('rm-tut')
+
+      const { access } = await import('node:fs/promises')
+      await expect(access(join(tempDir, 'tutorials', 'rm-tut.md'))).rejects.toThrow()
+      await expect(access(join(tempDir, 'tutorials', 'rm-tut.json'))).rejects.toThrow()
+    })
+
+    it('lists all tutorials and ignores .md sidecars', async () => {
+      await storage.saveTutorial(
+        createTutorial({ id: 'a', title: 'A', summary: 's', content: 'x' }),
+      )
+      await storage.saveTutorial(
+        createTutorial({ id: 'b', title: 'B', summary: 's', content: 'x' }),
+      )
+      const tutorials = await storage.listTutorials()
+      expect(tutorials).toHaveLength(2)
+      expect(tutorials.map(t => t.id).sort()).toEqual(['a', 'b'])
+    })
+
+    it('generates a unique slug from title, avoiding collisions', async () => {
+      await storage.saveTutorial(
+        createTutorial({ id: 'oxi-saga', title: 'OXI Saga', summary: 's', content: 'x' }),
+      )
+      const next = await storage.nextTutorialSlug('OXI Saga')
+      expect(next).not.toBe('oxi-saga')
+      expect(next).toMatch(/^oxi-saga/)
+    })
+
+    it('preserves status and publishedAt fields through save/load cycle', async () => {
+      const tutorial: ReturnType<typeof createTutorial> = {
+        ...createTutorial({ id: 'pub', title: 'Published', summary: 's', content: 'x' }),
+        status: 'published',
+        publishedAt: '2026-05-25T12:00:00.000Z',
+      }
+      await storage.saveTutorial(tutorial)
+
+      const loaded = await storage.loadTutorial('pub')
+      expect(loaded!.status).toBe('published')
+      expect(loaded!.publishedAt).toBe('2026-05-25T12:00:00.000Z')
+    })
+
+    it('normalizes a tutorial JSON missing required fields', async () => {
+      const dir = join(tempDir, 'tutorials')
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, 'partial.json'),
+        JSON.stringify({ title: 'Just a Title' }),
+      )
+
+      const loaded = await storage.loadTutorial('partial')
+      expect(loaded).toBeDefined()
+      expect(loaded!.id).toBe('partial')
+      expect(loaded!.title).toBe('Just a Title')
+      expect(loaded!.status).toBe('draft')
+      expect(loaded!.summary).toBe('')
+      expect(loaded!.content).toBe('')
     })
   })
 })

@@ -86,6 +86,22 @@ export interface CheatSheet {
   updatedAt: string
 }
 
+// === Tutorials ===
+
+export type TutorialStatus = 'draft' | 'published'
+
+export interface Tutorial {
+  id: string
+  title: string
+  summary: string
+  content: string
+  status: TutorialStatus
+  chatSessionId?: string
+  createdAt: string
+  updatedAt: string
+  publishedAt?: string
+}
+
 export interface ChatSessionInfo {
   id: string
   name: string
@@ -171,6 +187,27 @@ export function createCheatSheet(params: {
   return {
     ...params,
     tags: params.tags ?? [],
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+export function createTutorial(params: {
+  id: string
+  title: string
+  summary: string
+  content: string
+  status?: TutorialStatus
+  chatSessionId?: string
+}): Tutorial {
+  const now = new Date().toISOString()
+  return {
+    id: params.id,
+    title: params.title,
+    summary: params.summary,
+    content: params.content,
+    status: params.status ?? 'draft',
+    chatSessionId: params.chatSessionId,
     createdAt: now,
     updatedAt: now,
   }

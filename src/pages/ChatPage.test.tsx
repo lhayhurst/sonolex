@@ -275,6 +275,62 @@ describe('ChatPage', () => {
     })
   })
 
+  it('shows "Generate tutorial draft" only when the session has messages', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/chat/sessions/test-session-1/history') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([
+            { role: 'user', content: 'walk me through saga' },
+            { role: 'assistant', content: 'Step 1: open the SEQ menu.' },
+          ]),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+    })
+
+    renderWithSession()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /generate tutorial draft/i })).toBeInTheDocument()
+    })
+  })
+
+  it('POSTs to /api/tutorials/draft when "Generate tutorial draft" is clicked', async () => {
+    const calls: Array<{ url: string; opts?: RequestInit }> = []
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      calls.push({ url, opts })
+      if (url === '/api/chat/sessions/test-session-1/history') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([
+            { role: 'user', content: 'walk me through saga' },
+            { role: 'assistant', content: 'Step 1.' },
+          ]),
+        })
+      }
+      if (url === '/api/tutorials/draft' && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: 'new-tut', title: 'T' }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+    })
+
+    renderWithSession()
+
+    const button = await screen.findByRole('button', { name: /generate tutorial draft/i })
+    button.click()
+
+    await waitFor(() => {
+      const postCall = calls.find(c => c.url === '/api/tutorials/draft' && c.opts?.method === 'POST')
+      expect(postCall).toBeDefined()
+      const body = JSON.parse(postCall!.opts!.body as string)
+      expect(body.chatSessionId).toBe('test-session-1')
+    })
+  })
+
   it('does not auto-create a session when no sessionId is provided', async () => {
     global.fetch = vi.fn().mockImplementation(() => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })

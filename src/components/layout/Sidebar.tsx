@@ -13,6 +13,7 @@ interface SidebarProps {
 const navItems = [
   { to: '/manuals', label: 'Manuals', icon: '☰' },
   { to: '/cheatsheets', label: 'Cheat Sheets', icon: '▤' },
+  { to: '/tutorials', label: 'Tutorials', icon: '✎' },
   { to: '/studio', label: 'Studio', icon: '◇' },
   { to: '/about', label: 'About', icon: '?' },
 ]

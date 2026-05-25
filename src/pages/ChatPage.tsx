@@ -116,6 +116,8 @@ export function ChatPage() {
   const [deviceNames, setDeviceNames] = useState<string[]>([])
   const [tocCollapsed, setTocCollapsed] = useState(false)
   const [deepThinking, setDeepThinking] = useState(() => localStorage.getItem('sonolex-deep-thinking') !== 'false')
+  const [generatingTutorial, setGeneratingTutorial] = useState(false)
+  const [tutorialError, setTutorialError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -299,10 +301,47 @@ export function ChatPage() {
     }
   }
 
+  async function handleGenerateTutorial() {
+    if (!sessionId) return
+    setGeneratingTutorial(true)
+    setTutorialError(null)
+    try {
+      const res = await fetch('/api/tutorials/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatSessionId: sessionId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Generation failed (${res.status})`)
+      }
+      navigate('/tutorials')
+    } catch (err) {
+      setTutorialError(err instanceof Error ? err.message : 'Tutorial generation failed')
+    } finally {
+      setGeneratingTutorial(false)
+    }
+  }
+
+  const canGenerateTutorial = Boolean(sessionId) && messages.length > 0 && !sending && !streaming
+
   return (
     <div className="chat-page">
       <div className="chat-body">
         <div className="chat-main">
+          {sessionId && messages.length > 0 && (
+            <div className="chat-toolbar">
+              <button
+                className="cs-btn chat-toolbar-btn"
+                onClick={handleGenerateTutorial}
+                disabled={!canGenerateTutorial || generatingTutorial}
+                title="Distill this chat into a publishable tutorial draft"
+              >
+                {generatingTutorial ? 'Generating tutorial...' : '✎ Generate tutorial draft'}
+              </button>
+              {tutorialError && <span className="chat-toolbar-error">{tutorialError}</span>}
+            </div>
+          )}
           <div className="chat-messages">
             <ChatMessageList messages={messages} sending={sending} streaming={streaming} />
             <div ref={messagesEndRef} />

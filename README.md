@@ -19,6 +19,8 @@ Or [download the zip](https://github.com/lhayhurst/sonolex/archive/refs/heads/ma
 
 Works on **macOS** and **Linux**. On Linux, you may need to install Node.js via [nvm](https://github.com/nvm-sh/nvm) if your distro ships an older version.
 
+The repo ships with an empty `data/` directory — no example manuals, cheatsheets, or studio doc. On first run, import your own gear PDFs through the studio UI; everything stays local to your machine.
+
 ## Features
 
 - **Import from PDFs or the Web** — Upload equipment PDFs or paste a docs URL. Claude crawls, extracts, and structures content into searchable sections. Handles large manuals automatically.

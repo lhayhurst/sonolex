@@ -40,3 +40,12 @@ Sonolex is a local-first app for music studio documentation. Users upload equipm
 - Frontend code lives in `src/`
 - JSON data stored in `data/` directory
 - Requires `claude` CLI installed globally (`npm install -g @anthropic-ai/claude-code`)
+
+## Never commit `data/`
+
+Everything under `data/` is per-install: imported equipment manuals (often
+third-party copyrighted material from Ableton, Spitfire, OXI, etc.), user
+cheatsheets, and the studio doc. The entire directory is gitignored and must
+stay that way. Do not `git add data/...`, do not re-allowlist entries in
+`.gitignore`, do not commit example manuals "for convenience." If you need
+seed data for a test, use a fixture in the test file or a tmp dir.

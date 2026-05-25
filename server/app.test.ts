@@ -315,6 +315,45 @@ describe('API routes', () => {
       })
     })
 
+    describe('POST /api/tutorials/:id/publish', () => {
+      let docsDir: string
+
+      beforeEach(async () => {
+        docsDir = await mkdtemp(join(tmpdir(), 'sonolex-docs-test-'))
+        app = await createApp(storage, tempDir, docsDir)
+      })
+
+      afterEach(async () => {
+        await rm(docsDir, { recursive: true, force: true })
+      })
+
+      it('writes both files, updates status to published, and returns the git command', async () => {
+        const { createTutorial } = await import('../src/types/index')
+        await storage.saveTutorial(
+          createTutorial({ id: 'pub-test', title: 'Pub Me', summary: 's', content: '## Hi' }),
+        )
+
+        const res = await request(app).post('/api/tutorials/pub-test/publish')
+        expect(res.status).toBe(200)
+        expect(res.body.tutorial.status).toBe('published')
+        expect(res.body.tutorial.publishedAt).toBeDefined()
+        expect(res.body.filesWritten).toHaveLength(2)
+        expect(res.body.gitCommand).toContain('git add docs/tutorials')
+
+        const { access } = await import('node:fs/promises')
+        await access(join(docsDir, 'tutorials', 'pub-test', 'index.html'))
+        await access(join(docsDir, 'tutorials', 'index.html'))
+
+        const reloaded = await storage.loadTutorial('pub-test')
+        expect(reloaded!.status).toBe('published')
+      })
+
+      it('returns 404 for unknown id', async () => {
+        const res = await request(app).post('/api/tutorials/never/publish')
+        expect(res.status).toBe(404)
+      })
+    })
+
     describe('POST /api/tutorials/draft', () => {
       it('generates a tutorial draft from a chat session', async () => {
         vi.mocked(runClaude).mockResolvedValueOnce({

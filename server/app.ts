@@ -15,14 +15,16 @@ import { buildSystemPrompt, findRelevantManuals, buildManualContext, findRelevan
 import { crawlDocs, discoverPages } from './lib/web-crawler'
 import { extractCheatSheet } from './lib/cheatsheet-extractor'
 import { generateTutorial } from './lib/tutorial-generator'
+import { publishTutorial } from './lib/tutorial-publisher'
 import { createManual, createCheatSheet, createTutorial } from '../src/types/index'
 import type { StudioData, Manual, CheatSheet, Tutorial } from '../src/types/index'
 import { multerErrorHandler, errorHandler } from './lib/error-handler'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } })
 
-export async function createApp(storage: Storage, dataDir?: string) {
+export async function createApp(storage: Storage, dataDir?: string, docsDir?: string) {
   const resolvedDataDir = resolve(dataDir ?? '.')
+  const resolvedDocsDir = resolve(docsDir ?? (dataDir ? join(dataDir, '..', 'docs') : './docs'))
   const pdfsDir = dataDir ? join(dataDir, 'pdfs') : undefined
   const history = new ConversionHistory(dataDir ?? '.')
   const sessionManager = new ChatSessionManager(dataDir ?? '.')
@@ -250,6 +252,38 @@ export async function createApp(storage: Storage, dataDir?: string) {
   app.delete('/api/tutorials/:id', async (req, res) => {
     await storage.deleteTutorial(req.params.id)
     res.status(204).send()
+  })
+
+  app.post('/api/tutorials/:id/publish', async (req, res) => {
+    const tutorial = await storage.loadTutorial(req.params.id)
+    if (!tutorial) {
+      res.status(404).json({ error: 'Tutorial not found' })
+      return
+    }
+
+    try {
+      const allTutorials = await storage.listTutorials()
+      const alreadyPublished = allTutorials.filter(
+        t => t.status === 'published' && t.id !== tutorial.id,
+      )
+
+      const { tutorial: published, filesWritten } = await publishTutorial(
+        tutorial,
+        resolvedDocsDir,
+        alreadyPublished,
+      )
+      await storage.saveTutorial(published)
+
+      res.json({
+        tutorial: published,
+        filesWritten,
+        gitCommand: `git add docs/tutorials && git commit -m "Publish tutorial: ${published.title.replace(/"/g, '\\"')}" && git push`,
+      })
+    } catch (err: unknown) {
+      console.error('[tutorials/publish]', err)
+      const message = err instanceof Error ? err.message : 'Publish failed'
+      res.status(500).json({ error: message })
+    }
   })
 
   // PDF pre-flight: extract text and estimate conversion time

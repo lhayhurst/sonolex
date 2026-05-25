@@ -41,6 +41,9 @@ export function TutorialsPage() {
   const [editing, setEditing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [editState, setEditState] = useState<EditState>({ title: '', summary: '', content: '' })
+  const [publishing, setPublishing] = useState(false)
+  const [publishResult, setPublishResult] = useState<{ gitCommand: string; filesWritten: string[] } | null>(null)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   const loadTutorials = useCallback(async () => {
     try {
@@ -118,6 +121,32 @@ export function TutorialsPage() {
     await loadTutorials()
   }
 
+  async function handlePublish() {
+    if (!selected) return
+    setPublishing(true)
+    setPublishError(null)
+    setPublishResult(null)
+    try {
+      const res = await fetch(`/api/tutorials/${selected.id}/publish`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Publish failed (${res.status})`)
+      }
+      const data = (await res.json()) as { gitCommand: string; filesWritten: string[] }
+      setPublishResult({ gitCommand: data.gitCommand, filesWritten: data.filesWritten })
+      await loadTutorials()
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Publish failed')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  function dismissPublishBanner() {
+    setPublishResult(null)
+    setPublishError(null)
+  }
+
   if (loading) return null
 
   // Edit / Create
@@ -162,15 +191,37 @@ export function TutorialsPage() {
 
   // Detail
   if (selected) {
+    const publishLabel = selected.status === 'published' ? 'Re-publish' : 'Publish'
     return (
       <div className="cs-page">
         <div className="cs-header">
-          <button className="cs-back" onClick={() => setSelectedId(null)}>&larr; All Tutorials</button>
+          <button className="cs-back" onClick={() => { dismissPublishBanner(); setSelectedId(null) }}>&larr; All Tutorials</button>
           <div className="cs-actions">
+            <button className="cs-btn cs-btn-primary" onClick={handlePublish} disabled={publishing}>
+              {publishing ? 'Publishing...' : publishLabel}
+            </button>
             <button className="cs-btn" onClick={handleEdit}>Edit</button>
             <button className="cs-btn cs-btn-danger" onClick={handleDelete}>Delete</button>
           </div>
         </div>
+
+        {publishResult && (
+          <div className="tut-publish-banner tut-publish-success">
+            <div className="tut-publish-banner-head">
+              <strong>Wrote {publishResult.filesWritten.length} files.</strong>
+              <button className="cs-btn" onClick={dismissPublishBanner}>Dismiss</button>
+            </div>
+            <p>Run this from the repo root to publish to GitHub Pages:</p>
+            <pre className="tut-publish-cmd">{publishResult.gitCommand}</pre>
+          </div>
+        )}
+        {publishError && (
+          <div className="tut-publish-banner tut-publish-error">
+            <strong>Publish failed:</strong> {publishError}
+            <button className="cs-btn" onClick={dismissPublishBanner}>Dismiss</button>
+          </div>
+        )}
+
         <div className="cs-detail">
           <h1 className="cs-detail-title">{selected.title}</h1>
           <div className="cs-detail-meta">

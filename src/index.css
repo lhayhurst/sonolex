@@ -1980,6 +1980,34 @@ h3 {
   overflow-x: auto;
 }
 
+/* Tutorial publish banner */
+.tut-publish-banner {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 8px 0 16px;
+  background: var(--bg-alt);
+}
+.tut-publish-banner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.tut-publish-success { border-color: #16a34a; }
+.tut-publish-error { color: #dc2626; border-color: #dc2626; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tut-publish-cmd {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  margin-top: 4px;
+  user-select: all;
+}
+
 /* Chat toolbar (Generate tutorial draft) */
 .chat-toolbar {
   display: flex;

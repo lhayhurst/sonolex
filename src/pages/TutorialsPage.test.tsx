@@ -142,6 +142,44 @@ describe('TutorialsPage', () => {
     expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
   })
 
+  it('shows a publish banner with the git command after clicking Publish', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === '/api/tutorials' && (!opts || opts.method !== 'POST')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([makeTutorial({ id: 'pub-me', title: 'Pub Me' })]),
+        })
+      }
+      if (url === '/api/tutorials/pub-me/publish' && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              tutorial: makeTutorial({ id: 'pub-me', status: 'published' }),
+              filesWritten: ['/abs/docs/tutorials/pub-me/index.html', '/abs/docs/tutorials/index.html'],
+              gitCommand: 'git add docs/tutorials && git commit -m "Publish tutorial: Pub Me" && git push',
+            }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(
+      <MemoryRouter>
+        <TutorialsPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Pub Me'))
+    fireEvent.click(screen.getByText('Pub Me'))
+    fireEvent.click(screen.getByRole('button', { name: /^publish$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/wrote 2 files/i)).toBeInTheDocument()
+      expect(screen.getByText(/git add docs\/tutorials/)).toBeInTheDocument()
+    })
+  })
+
   it('DELETEs and returns to the list when Delete is clicked', async () => {
     let listings: Tutorial[] = [makeTutorial({ id: 'gone', title: 'Doomed' })]
     const calls: string[] = []

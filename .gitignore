@@ -15,18 +15,9 @@ dist-ssr
 # Environment
 .env
 
-# Data (user-specific studio data)
-# Ignore everything in data/ by default
+# Data — never check in. Imported manuals may carry third-party copyright;
+# cheatsheets and studio.md are user-specific. Each install builds its own.
 data/*
-
-# ...but share the markdown library across instances
-!data/manuals/
-data/manuals/*
-!data/manuals/*.md
-!data/cheatsheets/
-data/cheatsheets/*
-!data/cheatsheets/*.md
-!data/studio.md
 
 # Editor directories and files
 .vscode/*

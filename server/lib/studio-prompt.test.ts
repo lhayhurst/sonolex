@@ -72,6 +72,19 @@ describe('buildSystemPrompt', () => {
     const prompt = buildSystemPrompt(manuals)
     expect(prompt).not.toContain('GROUNDING')
   })
+
+  it('forbids asking the user for permission before checking the manual', () => {
+    const prompt = buildSystemPrompt(manuals, undefined, undefined, '/data')
+    // Should explicitly forbid permission-asking and "from memory" hedges
+    expect(prompt).toMatch(/do not (ask|offer)/i)
+    expect(prompt).toMatch(/from memory/i)
+  })
+
+  it('forbids creating tutorial or manual files via the Write tool', () => {
+    const prompt = buildSystemPrompt(manuals, undefined, undefined, '/data')
+    expect(prompt).toMatch(/do not.*write/i)
+    expect(prompt).toMatch(/tutorials?/i)
+  })
 })
 
 describe('findRelevantManuals', () => {

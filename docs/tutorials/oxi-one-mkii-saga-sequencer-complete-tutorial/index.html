@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OXI ONE MKII Saga Sequencer: Complete Tutorial — Sonolex</title>
+<meta name="description" content="A step-by-step guide to the OXI ONE MKII&#39;s Saga sequencer mode — a duration-based step sequencer where each stage has its own independent length, creating rhythmically expressive phrases. Covers setup, note entry, stage duration, parameters, accumulator, repeats, performance tools, modulation lanes, and the Harmonizer.">
+<style>:root {
+  --text: #374151;
+  --text-h: #111827;
+  --text-muted: #9ca3af;
+  --bg: #ffffff;
+  --bg-alt: #f9fafb;
+  --border: #e5e7eb;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --sans: system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #d1d5db;
+    --text-h: #f9fafb;
+    --text-muted: #6b7280;
+    --bg: #111827;
+    --bg-alt: #1f2937;
+    --border: #374151;
+    --accent: #818cf8;
+    --accent-hover: #6366f1;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font: 16px/1.6 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+.back { color: var(--text-muted); text-decoration: none; font-size: 14px; }
+.back:hover { color: var(--accent); }
+h1 { color: var(--text-h); font-size: 32px; margin: 24px 0 8px; line-height: 1.2; }
+h2 { color: var(--text-h); font-size: 22px; margin: 32px 0 8px; }
+h3 { color: var(--text-h); font-size: 18px; margin: 24px 0 8px; }
+p { margin: 12px 0; }
+.summary { color: var(--text-muted); font-size: 17px; margin: 8px 0 32px; }
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+ul, ol { margin: 12px 0 12px 24px; }
+li { margin: 4px 0; }
+code { font-family: var(--mono); font-size: 14px; background: var(--bg-alt); padding: 1px 6px; border-radius: 3px; }
+pre { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; margin: 12px 0; width: 100%; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+th { background: var(--bg-alt); font-weight: 600; }
+blockquote { border-left: 3px solid var(--border); padding-left: 16px; margin: 12px 0; color: var(--text-muted); }
+.tutorial-list { list-style: none; margin: 24px 0 0; padding: 0; }
+.tutorial-list li { margin: 0 0 24px; padding: 0; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+.tutorial-list li:last-child { border-bottom: 0; }
+.tutorial-list a { text-decoration: none; color: var(--text-h); font-size: 20px; font-weight: 600; }
+.tutorial-list a:hover { color: var(--accent); }
+.tutorial-list .summary { font-size: 15px; margin: 6px 0 0; }
+.empty { color: var(--text-muted); font-style: italic; margin: 32px 0; }</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="../">&larr; All tutorials</a>
+<h1>OXI ONE MKII Saga Sequencer: Complete Tutorial</h1>
+<p class="summary">A step-by-step guide to the OXI ONE MKII&#39;s Saga sequencer mode — a duration-based step sequencer where each stage has its own independent length, creating rhythmically expressive phrases. Covers setup, note entry, stage duration, parameters, accumulator, repeats, performance tools, modulation lanes, and the Harmonizer.</p>
+<p>The Saga sequencer on the OXI ONE MKII is a duration-based step sequencer where each step (called a &quot;stage&quot;) has its own independent length. Unlike fixed-grid sequencers, stages can hold notes for varying durations, creating rhythmically expressive and uneven sequences. This tutorial walks through every major Saga feature from initial setup to advanced performance tools.</p>
+<h2>Step 1: Setting Up a Saga Sequencer</h2>
+<h3>Selecting Saga Mode</h3>
+<ol>
+<li>Tap a sequencer slot (1–8) to select it — e.g., tap <strong>[6]</strong>.</li>
+<li>Hold <strong>[Shift] + tap [6]</strong> to open the sequencer settings.</li>
+<li>On Setup Page 1/3, turn <strong>Knob 4 (Mode)</strong> until you see <strong>SAGA</strong>. Press <strong>Knob 4</strong> to confirm.</li>
+</ol>
+<h3>Configure MIDI Channel &amp; Output</h3>
+<p>While still in settings:</p>
+<ul>
+<li><strong>Knob 1 (Ch):</strong> Set the MIDI channel for your destination synth. Press the knob to confirm.</li>
+<li><strong>Knob 3 (Out):</strong> Choose output port — ALL, USB, TRS, or BLE.</li>
+</ul>
+<p>Press <strong>[Page]</strong> to access page 3/3 where you can set:</p>
+<ul>
+<li><strong>Voice:</strong> Mono or Poly (start with Mono)</li>
+<li><strong>Color:</strong> Pick whatever you like for visual identification</li>
+</ul>
+<h3>Understanding the Grid Layout</h3>
+<ul>
+<li>Each pad equals one stage in the sequence</li>
+<li>Stages flow <strong>left to right</strong>, then continue on the <strong>next row down</strong></li>
+<li>Stage 1 is top-left, Stage 16 is top-right, Stage 17 starts the second row</li>
+<li>Maximum <strong>96 stages</strong> available</li>
+<li>A keyboard section appears at the bottom of the grid for entering notes</li>
+</ul>
+<h3>Stage Colors</h3>
+<ul>
+<li><strong>Unlit pads:</strong> Outside the sequence length</li>
+<li><strong>Deep red pads:</strong> Within the track length but inactive (no note assigned)</li>
+<li><strong>Pink/colored pads:</strong> Active stages with notes</li>
+</ul>
+<p>Press <strong>[Back]</strong> to return to the main Saga sequencer view.</p>
+<h2>Step 2: Creating Your First Sequence</h2>
+<h3>Setting the Track Length</h3>
+<ol>
+<li><strong>Tap an empty pad</strong> to set the length. For example, tap the 8th pad in the top row for an 8-stage sequence. Pads within range light up <strong>deep red</strong>.</li>
+<li>Alternatively, hold <strong>[End] + tap a pad</strong> to set the last stage, or hold <strong>[Init] + tap a pad</strong> to set the first stage.</li>
+</ol>
+<h3>Activating Stages</h3>
+<ul>
+<li><strong>Tap a red pad</strong> to activate it with the default note (lights up in your sequencer color).</li>
+<li><strong>Tap again</strong> to deactivate.</li>
+</ul>
+<h3>Entering Specific Notes via Keyboard</h3>
+<ol>
+<li><strong>Hold a red (empty) stage pad</strong> in the upper grid area.</li>
+<li>While holding, <strong>tap a keyboard note</strong> at the bottom of the grid.</li>
+<li>Release — the stage is now active with that note assigned.</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> Chord entry in Saga&#39;s Poly mode is not currently supported. For chords, use a separate sequencer in Chord or Poly mode.</p>
+</blockquote>
+<h3>Keyboard Shortcuts</h3>
+<ul>
+<li><strong>Yellow pad:</strong> Transpose keyboard +1 octave</li>
+<li><strong>Blue pad:</strong> Transpose keyboard −1 octave</li>
+<li><strong>White pads (right column):</strong> Velocity levels (27, 47, 67, 87, 107, 127)</li>
+</ul>
+<p>Activate 4–6 stages with different notes and press <strong>[Play]</strong> to hear your sequence. Right now every stage plays for the same default duration — the next step is what makes Saga unique.</p>
+<h2>Step 3: Working with Stage Duration</h2>
+<p>In a normal sequencer, every step has the same length. In Saga, each stage can hold for a different number of steps. This is the core concept.</p>
+<h3>Changing Stage Duration</h3>
+<ol>
+<li><strong>Hold an active stage pad</strong> — parameters appear on screen.</li>
+<li>On Page 1/3, turn <strong>Knob 4 (Dur)</strong> to change the duration value.</li>
+</ol>
+<h3>What Duration Does</h3>
+<p><code>Dur</code> is measured in step counts based on your sequencer&#39;s time division:</p>
+<table>
+<thead>
+<tr>
+<th>Dur Value</th>
+<th>At 1/16 Division</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 (default)</td>
+<td>1/16th note</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1/8th note</td>
+</tr>
+<tr>
+<td>4</td>
+<td>1/4 note</td>
+</tr>
+<tr>
+<td>8</td>
+<td>1/2 note</td>
+</tr>
+<tr>
+<td>16</td>
+<td>1 whole bar</td>
+</tr>
+</tbody></table>
+<p>The playhead pauses at each stage for its duration before advancing.</p>
+<h3>Total Sequence Length</h3>
+<p>Total duration = sum of all stage durations. If you have 4 stages with durations of 1, 4, 2, 1, the total sequence lasts 8 steps. The header display shows this total.</p>
+<h3>Try It: Create an Uneven Rhythm</h3>
+<ol>
+<li>Set up 4 active stages with different notes.</li>
+<li>Hold stage 1, set <strong>Dur = 4</strong> (long, sustained).</li>
+<li>Hold stage 2, set <strong>Dur = 1</strong> (quick).</li>
+<li>Hold stage 3, set <strong>Dur = 1</strong> (quick).</li>
+<li>Hold stage 4, set <strong>Dur = 2</strong> (medium).</li>
+<li>Press <strong>[Play]</strong>.</li>
+</ol>
+<p>You&#39;ll hear a 4 + 1 + 1 + 2 rhythm — a lopsided, expressive phrase rather than a mechanical grid. Saga lets you think in musical phrases rather than grid positions.</p>
+<h2>Step 4: Editing Stage Parameters</h2>
+<h3>Primary Parameters (Page 1/3)</h3>
+<p>Hold an active stage pad to see these on screen:</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Parameter</th>
+<th>Range</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>Vel</strong></td>
+<td>1–127</td>
+<td>Velocity/loudness</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Note</strong></td>
+<td>Scale-dependent</td>
+<td>Pitch (use keyboard for entry, knob for tweaking)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Gate</strong></td>
+<td>2–99%</td>
+<td>How long the note sounds within the stage&#39;s duration</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Dur</strong></td>
+<td>1+ steps</td>
+<td>How long the playhead stays on this stage</td>
+</tr>
+</tbody></table>
+<h3>Secondary Parameters</h3>
+<p>Tap a knob to switch between upper and lower parameter rows:</p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Parameter</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>Offst</strong></td>
+<td>Delays the note timing within the stage</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>CvGld</strong></td>
+<td>CV glide — smooth pitch transition (CV only)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Rng</strong></td>
+<td>Random note range (±24 scale intervals)</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Trig</strong></td>
+<td>Trigger probability — % chance the stage fires</td>
+</tr>
+</tbody></table>
+<h3>Gate vs Duration</h3>
+<ul>
+<li><strong>Duration</strong> = how long the playhead <em>stays</em> on the stage</li>
+<li><strong>Gate</strong> = how long the <em>note sounds</em> within that duration</li>
+</ul>
+<p>A stage with Dur=4 and Gate=50% holds position for 4 steps, but the note only rings for 2 of them. For sustained sounds, set Gate to <strong>99%</strong>.</p>
+<h3>Editing Multiple Stages</h3>
+<p>Hold <strong>multiple pads simultaneously</strong>, then turn a knob — the value applies to all held stages. The screen shows &quot;Multipress&quot; to confirm.</p>
+<h2>Step 5: Adding Variation with the Accumulator</h2>
+<p>The accumulator progressively shifts a stage&#39;s pitch on each cycle of the sequence, creating evolving melodies.</p>
+<h3>Accessing the Accumulator</h3>
+<ol>
+<li><strong>Hold an active stage pad.</strong></li>
+<li>Press <strong>[Page]</strong> twice to reach <strong>Page 3/3</strong>.</li>
+</ol>
+<h3>Key Parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Parameter</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 (upper)</td>
+<td><strong>Amt</strong></td>
+<td>Pitch interval added/subtracted each cycle (e.g., +1st = up one scale step per loop)</td>
+</tr>
+<tr>
+<td>1 (lower)</td>
+<td><strong>Acml+</strong></td>
+<td>Upper limit — max positive intervals before reset</td>
+</tr>
+<tr>
+<td>2 (lower)</td>
+<td><strong>Acml−</strong></td>
+<td>Lower limit — max negative intervals before reset</td>
+</tr>
+<tr>
+<td>3 (lower)</td>
+<td><strong>Mode</strong></td>
+<td>Behavior at limits: Wrap, Hold, Clip, or Pendulum</td>
+</tr>
+<tr>
+<td>4 (upper)</td>
+<td><strong>Trig</strong></td>
+<td>What gets accumulated — step only, repeats only, or all</td>
+</tr>
+</tbody></table>
+<h3>Mode Options</h3>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Wrap</strong></td>
+<td>At the limit, wraps to the opposite limit</td>
+</tr>
+<tr>
+<td><strong>Hold</strong></td>
+<td>At the limit, stays at that pitch indefinitely</td>
+</tr>
+<tr>
+<td><strong>Clip</strong></td>
+<td>At the limit, resets to the opposite limit</td>
+</tr>
+<tr>
+<td><strong>Pendulum</strong></td>
+<td>At the limit, reverses direction</td>
+</tr>
+</tbody></table>
+<h3>Try It: A Rising Melody</h3>
+<ol>
+<li>Create a 4-stage sequence with C2 on each stage.</li>
+<li>Hold stage 1, press [Page] twice to reach page 3/3.</li>
+<li>Set <strong>Amt = +1st</strong>.</li>
+<li>Set <strong>Acml+ = +7st</strong>.</li>
+<li>Set <strong>Acml− = 0</strong>.</li>
+<li>Set <strong>Mode = Pendulum</strong>.</li>
+<li>Press <strong>[Play]</strong>.</li>
+</ol>
+<p>Stage 1&#39;s pitch rises by one scale step each loop until it hits +7, then reverses and descends. Other stages remain static — accumulation is per-stage. Combined with varying durations, the accumulator turns a simple phrase into something generative.</p>
+<h2>Step 6: Adding Variation with Repeats</h2>
+<p>Repeats retrigger a stage&#39;s note multiple times within its duration, adding rhythmic density.</p>
+<h3>Accessing Repeat Parameters</h3>
+<ol>
+<li><strong>Hold an active stage pad.</strong></li>
+<li>Press <strong>[Page]</strong> once for <strong>Page 2/3</strong>.</li>
+</ol>
+<h3>Key Parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Parameter</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 (upper)</td>
+<td><strong>Rept</strong></td>
+<td>Number of repeats: Off, 2–15, or Skip</td>
+</tr>
+<tr>
+<td>2 (lower)</td>
+<td><strong>Durat</strong></td>
+<td>Extends the repeat chain across multiple stages (x1–x15)</td>
+</tr>
+<tr>
+<td>3 (lower)</td>
+<td><strong>Rpt%</strong></td>
+<td>Probability/condition for whether repeats fire</td>
+</tr>
+</tbody></table>
+<h3>How Repeats Work</h3>
+<p>With <strong>Rept = 4</strong> on a stage with <strong>Dur = 4</strong>: the note fires 4 times evenly spaced across 4 steps.</p>
+<p><strong>Important:</strong> Make sure your stage duration is long enough for the repeats to spread out. With Dur = 1, repeats fire so close together they can sound like a single note. Set <strong>Dur to 4 or higher</strong> and <strong>Gate to 30–50%</strong> to clearly hear individual retriggers.</p>
+<h3>Conditional Repeats with Rpt%</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>100%</td>
+<td>Repeats always fire</td>
+</tr>
+<tr>
+<td>50%</td>
+<td>Repeats fire ~half the time</td>
+</tr>
+<tr>
+<td><strong>Flow</strong></td>
+<td>Repeats only fire while holding the [Flow] button</td>
+</tr>
+</tbody></table>
+<h3>Try It: A Performance Fill</h3>
+<ol>
+<li>Set up a 4-stage sequence with notes.</li>
+<li>On stage 4, set <strong>Rept = 8</strong>, <strong>Durat = x2</strong>.</li>
+<li>Set <strong>Rpt% = Flow</strong>.</li>
+<li>Press [Play].</li>
+<li>The sequence plays normally — hold <strong>[Flow]</strong> and stage 4 erupts into a rapid 8-note fill.</li>
+</ol>
+<h3>Repeats + Accumulator Interaction</h3>
+<p>If the accumulator&#39;s <strong>Trig</strong> parameter is set to <strong>All</strong>, each repeat counts as a step in the pitch progression, accelerating pitch evolution. Set to <strong>Step</strong> to only accumulate on the main trigger.</p>
+<h2>Step 7: Performance Tools</h2>
+<h3>Perform Mode (Transpose &amp; Rotate)</h3>
+<p>Press <strong>[Perf]</strong> to open the performance grid. Each sequencer gets a row.</p>
+<p><strong>Grid layout:</strong></p>
+<ul>
+<li><strong>Column 1</strong> = Mute/Unmute for each sequencer</li>
+<li><strong>Columns 2–8</strong> = Transpose DOWN (−1 to −7 scale intervals)</li>
+<li><strong>Column 9</strong> (white) = Original pitch (no transposition)</li>
+<li><strong>Columns 10–16</strong> = Transpose UP (+1 to +7 scale intervals)</li>
+</ul>
+<p><strong>Rotate:</strong> Hold <strong>[Shift]</strong> in Perform view. Pads now rotate the stage order earlier or later in time (yellow center = original position).</p>
+<p>Both are non-destructive — exit Perform mode and your original sequence is intact.</p>
+<blockquote>
+<p><strong>Warning:</strong> Performance mute states persist when you exit the Perf page. If your sequencer seems silent, check Perf for an accidental mute.</p>
+</blockquote>
+<h3>Flow</h3>
+<p>Any stage can have its <strong>Trig</strong> parameter set to <strong>Flow</strong> or <strong>Not Flow</strong>:</p>
+<ul>
+<li><strong>Flow</strong> stages only trigger while you hold <strong>[Flow]</strong></li>
+<li><strong>Not Flow</strong> stages play normally but go silent when you hold [Flow]</li>
+</ul>
+<p>This is powerful for setting up alternate melody lines or fills that only appear on demand.</p>
+<h3>Arpeggiator</h3>
+<ol>
+<li>Press <strong>[Keyboard]</strong> to enter keyboard view.</li>
+<li>Press <strong>[Arp]</strong> to open arp settings.</li>
+<li>Turn <strong>Knob 1</strong> to select an arp type (Up, Down, Up/Down, Random, etc.).</li>
+<li>Press <strong>[Play]</strong> — the arp runs independently of your Saga sequence on its own time division.</li>
+<li>Hold <strong>[Shift] + [Arp]</strong> to activate <strong>Hold</strong> (latches notes).</li>
+</ol>
+<h2>Step 8: Modulation Lanes</h2>
+<p>Modulation lanes automate MIDI CC parameters alongside your Saga sequence. Each sequencer has 8 lanes.</p>
+<h3>Setting Up a Mod Lane</h3>
+<ol>
+<li>Press <strong>[Mod]</strong> to open modulation view.</li>
+<li>Hold <strong>[Shift] + tap a knob</strong> to enter that lane&#39;s settings.</li>
+<li>Set <strong>CC DEST</strong> to the MIDI CC number you want (e.g., CC 1 for dynamics, CC 11 for expression, CC 64 for sustain pedal).</li>
+<li>Set <strong>MOD MAX</strong> and <strong>MOD MIN</strong> to define the range.</li>
+<li>Press <strong>[Back]</strong> to exit settings.</li>
+</ol>
+<h3>Drawing Modulation</h3>
+<ul>
+<li><strong>Tap pads</strong> to set values per step (bottom row = minimum, top row = maximum).</li>
+<li><strong>Swipe across</strong> to draw curves.</li>
+<li><strong>Turn a knob</strong> to globally offset all step values in that lane.</li>
+</ul>
+<h3>Independent Length &amp; Speed</h3>
+<p>Each mod lane can have its own start/end points, time division, and smoothing factor. Setting a mod lane to a different length than your stages creates <strong>polymetric modulation</strong>.</p>
+<h3>Recording Modulation Live</h3>
+<ol>
+<li>Press [Mod], then [Play], then <strong>[Rec]</strong>.</li>
+<li>Turn a knob — your movements are recorded into that lane.</li>
+<li>Press [Rec] again to stop.</li>
+</ol>
+<h3>Suggested Assignments</h3>
+<table>
+<thead>
+<tr>
+<th>Lane</th>
+<th>CC</th>
+<th>Parameter</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>CC 1</td>
+<td>Dynamics / timbre</td>
+</tr>
+<tr>
+<td>2</td>
+<td>CC 11</td>
+<td>Expression / volume</td>
+</tr>
+<tr>
+<td>3</td>
+<td>CC 64</td>
+<td>Sustain pedal (0–63 = off, 64–127 = on)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>CC 74</td>
+<td>Brightness / filter cutoff</td>
+</tr>
+</tbody></table>
+<p><strong>Tip:</strong> CC 1 (Dynamics) is the best &quot;proof of life&quot; test — sweep it from 0 to 127. If you hear a tonal change, the mod lane is reaching your instrument.</p>
+<h2>Step 9: Harmonizer</h2>
+<p>The Harmonizer lets one sequencer (the &quot;leader&quot;) define chord harmony while another sequencer (the &quot;follower&quot;) has its pitches automatically harmonized to match.</p>
+<h3>Concept</h3>
+<p>The leader plays chords that define the harmonic context. The follower plays its own rhythm and articulation, but its pitches are controlled by the leader&#39;s chords.</p>
+<h3>Set Up the Leader</h3>
+<ol>
+<li>Select a sequencer (e.g., <strong>Seq 4</strong>).</li>
+<li>Hold <strong>[Shift] + tap [4]</strong> to open settings.</li>
+<li>Turn Knob 4 to select <strong>Chord</strong> mode. Press to confirm.</li>
+<li>Set the MIDI channel to your chord instrument.</li>
+<li>Program a chord progression.</li>
+</ol>
+<blockquote>
+<p>The leader <strong>must</strong> be in Chord or Poly mode. Saga and Mono modes are not recognized as Harmonizer leaders.</p>
+</blockquote>
+<h3>Set Up the Follower</h3>
+<ol>
+<li>Select another sequencer (e.g., <strong>Seq 5</strong>).</li>
+<li>Set it to any mode you like (Mono, Saga, etc.).</li>
+<li>Set its MIDI channel to your melody/lead instrument.</li>
+<li>Hold <strong>[Shift] + turn Knob 3 (Scale)</strong> counter-clockwise until the display shows <strong><code>HARMON</code></strong>.</li>
+<li>Hold <strong>[Shift] + turn Knob 4 (Root)</strong> until it shows <strong><code>Sq.4</code></strong> (pointing to your leader).</li>
+<li>Program a rhythmic/melodic pattern with <strong>varied pitches across multiple rows</strong>.</li>
+</ol>
+<h3>Press Play</h3>
+<p>The transport must be running for harmonization to take effect. The follower keeps its programmed rhythm, gate, and velocity, but its pitches snap to harmonize with whatever chords the leader is playing.</p>
+<h3>Important Notes</h3>
+<ul>
+<li>The follower <strong>must have steps programmed</strong> — the Harmonizer re-pitches existing notes but does not generate notes from nothing.</li>
+<li>Use <strong>varied pitch values</strong> in the follower. If all steps use only 2 different note rows, you&#39;ll only hear 2 harmonized pitches regardless of the leader&#39;s complexity.</li>
+<li>Notes set in <strong>lower octaves</strong> of the follower may not be affected. The Harmonizer references chord degrees from root C2. Use <strong>Knob 2 (Oct)</strong> to raise the follower&#39;s octave if needed.</li>
+<li>Check <strong>Config &gt; Performance &gt; Harmonized seq octave max</strong> (default 1, can be 0–2) to give the Harmonizer more range.</li>
+<li><strong>Muting the leader</strong> disables harmonization on the follower.</li>
+<li>Make sure the leader and follower are on <strong>different MIDI channels</strong> to avoid sending unintended notes to the wrong instrument.</li>
+</ul>
+<h3>Troubleshooting</h3>
+<p>If notes aren&#39;t triggering on the follower&#39;s instrument, check:</p>
+<ol>
+<li>The instrument track is armed or set to Monitor <strong>&quot;In&quot;</strong> in your DAW.</li>
+<li>The DAW track&#39;s MIDI input is set to the correct channel.</li>
+<li>The MIDI channel on the OXI matches what the DAW expects.</li>
+</ol>
+
+</div>
+</body>
+</html>

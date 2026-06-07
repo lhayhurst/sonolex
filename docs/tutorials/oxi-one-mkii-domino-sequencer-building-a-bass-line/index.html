@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OXI ONE MKII — Domino Sequencer: Building a Bass Line — Sonolex</title>
+<meta name="description" content="Learn the Domino sequencer on the OXI ONE MKII by building a bass line from scratch. Covers the two-layer architecture (triggers + notes), note entry, controlling sustain, polymetric interaction, and per-step trigger parameters.">
+<style>:root {
+  --text: #374151;
+  --text-h: #111827;
+  --text-muted: #9ca3af;
+  --bg: #ffffff;
+  --bg-alt: #f9fafb;
+  --border: #e5e7eb;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --sans: system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #d1d5db;
+    --text-h: #f9fafb;
+    --text-muted: #6b7280;
+    --bg: #111827;
+    --bg-alt: #1f2937;
+    --border: #374151;
+    --accent: #818cf8;
+    --accent-hover: #6366f1;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font: 16px/1.6 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+.back { color: var(--text-muted); text-decoration: none; font-size: 14px; }
+.back:hover { color: var(--accent); }
+h1 { color: var(--text-h); font-size: 32px; margin: 24px 0 8px; line-height: 1.2; }
+h2 { color: var(--text-h); font-size: 22px; margin: 32px 0 8px; }
+h3 { color: var(--text-h); font-size: 18px; margin: 24px 0 8px; }
+p { margin: 12px 0; }
+.summary { color: var(--text-muted); font-size: 17px; margin: 8px 0 32px; }
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+ul, ol { margin: 12px 0 12px 24px; }
+li { margin: 4px 0; }
+code { font-family: var(--mono); font-size: 14px; background: var(--bg-alt); padding: 1px 6px; border-radius: 3px; }
+pre { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; margin: 12px 0; width: 100%; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+th { background: var(--bg-alt); font-weight: 600; }
+blockquote { border-left: 3px solid var(--border); padding-left: 16px; margin: 12px 0; color: var(--text-muted); }
+.tutorial-list { list-style: none; margin: 24px 0 0; padding: 0; }
+.tutorial-list li { margin: 0 0 24px; padding: 0; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+.tutorial-list li:last-child { border-bottom: 0; }
+.tutorial-list a { text-decoration: none; color: var(--text-h); font-size: 20px; font-weight: 600; }
+.tutorial-list a:hover { color: var(--accent); }
+.tutorial-list .summary { font-size: 15px; margin: 6px 0 0; }
+.empty { color: var(--text-muted); font-style: italic; margin: 32px 0; }</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="../">&larr; All tutorials</a>
+<h1>OXI ONE MKII — Domino Sequencer: Building a Bass Line</h1>
+<p class="summary">Learn the Domino sequencer on the OXI ONE MKII by building a bass line from scratch. Covers the two-layer architecture (triggers + notes), note entry, controlling sustain, polymetric interaction, and per-step trigger parameters.</p>
+<p>The Domino sequencer on the OXI ONE MKII uses two independent layers — a trigger layer and a note layer — to create evolving, unpredictable sequences. The trigger layer controls <em>when</em> notes fire; the note layer controls <em>what</em> plays. Because the two layers can be different lengths, the same notes appear in constantly shifting rhythmic contexts. This tutorial walks through setting up a Domino bass line from scratch.</p>
+<h2>Step 1: Concept &amp; Grid Layout</h2>
+<p>Domino&#39;s grid is divided into three zones:</p>
+<ul>
+<li><strong>Note section</strong> (top 2 rows) — Up to 32 steps of notes or chords (up to 4 notes per step). Row 1 = steps 1–16, row 2 = steps 17–32. This layer only advances when the trigger layer tells it to.</li>
+<li><strong>Trigger section</strong> (middle rows) — Up to 64 steps of rhythmic triggers. Each time a trigger activates, it advances the note layer forward by one step.</li>
+<li><strong>Keyboard</strong> (bottom rows) — A 2-octave keyboard based on your current scale and root, used to enter notes into the note layer.</li>
+</ul>
+<p>Because the two layers are independent, a 7-step trigger pattern driving a 5-step note pattern takes 35 cycles before it exactly repeats.</p>
+<ol>
+<li>Select any sequencer — tap <strong>Seq [1]–[8]</strong></li>
+<li>Open its settings: hold <strong>[Shift] + Seq button</strong></li>
+<li>Turn <strong>Knob 4</strong> to set the mode to <strong>DOMI</strong> and press to confirm</li>
+<li>Look at the grid — you should see the three zones. The trigger section pads will be dark purple when empty.</li>
+</ol>
+<h2>Step 2: Setting Up</h2>
+<p><strong>MIDI Channel &amp; Output</strong></p>
+<ol>
+<li>Hold <strong>[Shift] + your Seq button</strong> to open settings page 1/3</li>
+<li>Turn <strong>Knob 1 (Ch)</strong> to set the MIDI channel — press to confirm</li>
+<li>Turn <strong>Knob 3 (Out)</strong> to choose the output: <strong>ALL</strong>, <strong>USB</strong>, <strong>TRS</strong>, or <strong>BLE</strong></li>
+</ol>
+<p><strong>Voice Mode</strong></p>
+<ol>
+<li>Press <strong>[Page]</strong> twice to reach page 3/3</li>
+<li>Set <strong>Voice</strong> to <strong>Poly</strong> if you plan to use chords, or <strong>Mono</strong> for single notes (e.g., bass lines)</li>
+<li>Leave <strong>ChMx</strong> at <strong>OFF</strong> for now</li>
+</ol>
+<p><strong>Enable Preview</strong></p>
+<p>Hold <strong>[Shift] + [Keyboard]</strong> to toggle preview on. This lets you hear notes as you place them.</p>
+<p>Press <strong>[Back]</strong> to return to the main sequencer view. You should see &quot;DOMI&quot; in the top-left of the display.</p>
+<h2>Step 3: Building the Trigger Layer</h2>
+<p>The trigger layer is the rhythmic engine — it determines <em>when</em> notes fire.</p>
+<ol>
+<li><strong>Tap any dark purple pad</strong> in the trigger section to activate a trigger — it lights up in your sequencer color. Tap again to remove it.</li>
+<li>Hold <strong>[End]</strong> and tap a pad in the trigger section to set where the pattern ends</li>
+<li>Hold <strong>[Init]</strong> and tap a pad to set where it starts</li>
+<li>Use page buttons <strong>[16], [32], [48], [64]</strong> to access more steps (up to 64)</li>
+</ol>
+<p><strong>Important for sustain:</strong> The distance between triggers determines how long each note sustains. Dense, closely-spaced triggers produce short staccato notes. Spread-out triggers (e.g., steps 1, 5, 9, 13) produce longer, more sustained notes — each note rings until the next trigger fires. For a bass line, try wider spacing like triggers on steps <strong>1, 5, 9, 13</strong> for quarter-note sustain, or <strong>1 and 9</strong> for half-note sustain.</p>
+<p>With no notes in the note layer yet, you won&#39;t hear anything — that&#39;s expected.</p>
+<h2>Step 4: Building the Note Layer</h2>
+<ol>
+<li><strong>Hold an empty pad</strong> in the note section (top 2 rows)</li>
+<li>While holding it, <strong>tap a key on the keyboard</strong> at the bottom of the grid</li>
+<li>The note is assigned to that step — the pad lights up</li>
+<li>For chords (in Poly mode), hold the note-section pad and play multiple keyboard keys (up to 4)</li>
+</ol>
+<p>For a bass line, place 4–5 notes in a tight range — root, fifth, octave, maybe a step down.</p>
+<p><strong>Set the note layer length:</strong> Hold <strong>[End]</strong> and tap a pad in the note section.</p>
+<p><strong>Key insight:</strong> Make your note layer a <em>different length</em> than your trigger layer for evolving patterns:</p>
+<ul>
+<li>5 notes + 8 triggers = repeats every 40 cycles</li>
+<li>4 notes + 7 triggers = repeats every 28 cycles</li>
+</ul>
+<h2>Step 5: Hearing the Interaction</h2>
+<ol>
+<li>Press <strong>[Play]</strong></li>
+<li>Watch the trigger layer&#39;s playhead — each time it hits an active trigger, the note layer advances one step</li>
+</ol>
+<p><strong>Experiment in real time:</strong></p>
+<ul>
+<li><strong>Add or remove triggers</strong> while playing — the rhythm changes instantly and the melody reshuffles</li>
+<li><strong>Change the trigger layer length</strong> (hold [End] + tap a trigger pad) — shortening it cycles through notes faster</li>
+<li><strong>Change the note layer length</strong> — even one note more or fewer shifts the entire feel</li>
+</ul>
+<p>Unlike a normal sequencer where rhythm and melody are locked step-by-step, Domino lets them orbit independently. The same 5 notes produce completely different phrases just by rearranging the triggers.</p>
+<h2>Step 6: Trigger Step Parameters</h2>
+<p>Hold a <strong>trigger pad</strong> to access its per-step parameters:</p>
+<ul>
+<li><strong>Rept</strong> — Number of repeats (1–15). Setting this to 2 fires the trigger twice, advancing the note layer twice as fast at that point. Creates ratchet-like bursts.</li>
+<li><strong>Rpt%</strong> — Repeat probability. 100% = repeats always fire. Lower values add unpredictability.</li>
+<li><strong>Durat</strong> — How many steps the repeats span across.</li>
+<li><strong>Trig</strong> — Trigger probability. 100% = always fires. At 50%, the trigger only fires half the time, creating organic rhythmic gaps.</li>
+</ul>
+<p><strong>Tips for bass lines:</strong></p>
+<ul>
+<li>Put <strong>2–3 repeats</strong> on one trigger to create a quick burst of notes at that point</li>
+<li>Set <strong>Trig to 50–75%</strong> on a trigger or two so the bass sometimes skips a beat</li>
+<li>A repeat with low Rpt% adds surprise fills — the ratchet happens unpredictably</li>
+</ul>
+<p>Remember: each repeat advances the note layer too, so a trigger with 3 repeats chews through 3 notes in rapid succession. This creates rhythmic contrast — long sustained notes from spaced triggers, then a quick burst from a repeated one.</p>
+
+</div>
+</body>
+</html>

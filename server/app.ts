@@ -508,17 +508,48 @@ export async function createApp(storage: Storage, dataDir?: string, docsDir?: st
   })
 
   app.patch('/api/chat/sessions/:id', async (req, res) => {
-    const { name } = req.body as { name?: string }
-    if (!name) {
-      res.status(400).json({ error: 'name is required' })
+    const { name, manualIdsInScope, userOverrideOfManuals } = req.body as {
+      name?: string
+      manualIdsInScope?: string[]
+      userOverrideOfManuals?: boolean
+    }
+    const hasScopeUpdate = manualIdsInScope !== undefined || userOverrideOfManuals !== undefined
+
+    if (!name && !hasScopeUpdate) {
+      res.status(400).json({ error: 'name or scope fields required' })
       return
     }
-    const ok = await sessionManager.renameSession(req.params.id, name)
-    if (!ok) {
+
+    if (hasScopeUpdate && (manualIdsInScope === undefined || userOverrideOfManuals === undefined)) {
+      res.status(400).json({ error: 'manualIdsInScope and userOverrideOfManuals must be supplied together' })
+      return
+    }
+
+    if (!sessionManager.getInfo(req.params.id)) {
       res.status(404).json({ error: 'Session not found' })
       return
     }
+
+    if (name) {
+      await sessionManager.renameSession(req.params.id, name)
+    }
+    if (hasScopeUpdate) {
+      await sessionManager.setScope(req.params.id, {
+        manualIdsInScope: manualIdsInScope!,
+        userOverrideOfManuals: userOverrideOfManuals!,
+      })
+    }
+
     res.json({ ok: true })
+  })
+
+  app.get('/api/chat/sessions/:id', async (req, res) => {
+    const info = sessionManager.getInfo(req.params.id)
+    if (!info) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    res.json(info)
   })
 
   app.delete('/api/chat/sessions/:id', async (req, res) => {
@@ -613,10 +644,22 @@ export async function createApp(storage: Storage, dataDir?: string, docsDir?: st
         enrichedMessage += `\n\n--- Image ---\nThe user has pasted an image. Read it at: ${imagePath}\nDescribe or analyze the image as part of your response.`
       }
 
-      // Inject relevant manual content if the user mentions a device
-      const relevant = findRelevantManuals(message, manuals)
-      if (relevant.length > 0) {
-        enrichedMessage += '\n\n' + buildManualContext(relevant)
+      // Auto-extend the session's manual scope from devices mentioned in this
+      // turn (no-op if the user has pinned the dropdown). Then inject every
+      // manual currently in scope so Claude keeps the relevant docs across
+      // follow-up turns that don't repeat the device name.
+      const detected = findRelevantManuals(message, manuals)
+      if (detected.length > 0) {
+        await sessionManager.extendScope(
+          req.params.id,
+          detected.map(m => m.id),
+        )
+      }
+      const sessionInfo = sessionManager.getInfo(req.params.id)
+      const scopeIds = sessionInfo?.manualIdsInScope ?? []
+      const inScope = manuals.filter(m => scopeIds.includes(m.id))
+      if (inScope.length > 0) {
+        enrichedMessage += '\n\n' + buildManualContext(inScope)
       }
 
       // Inject relevant cheat sheet content

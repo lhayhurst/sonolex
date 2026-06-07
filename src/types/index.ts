@@ -107,6 +107,8 @@ export interface ChatSessionInfo {
   name: string
   createdAt: string
   lastMessageAt: string | null
+  manualIdsInScope?: string[]
+  userOverrideOfManuals?: boolean
 }
 
 export interface StudioMeta {

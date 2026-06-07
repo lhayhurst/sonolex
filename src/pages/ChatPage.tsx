@@ -114,6 +114,10 @@ export function ChatPage() {
   const [streaming, setStreaming] = useState<StreamingState | null>(null)
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null)
   const [deviceNames, setDeviceNames] = useState<string[]>([])
+  const [allManuals, setAllManuals] = useState<Array<{ id: string; title: string }>>([])
+  const [scopeManualIds, setScopeManualIds] = useState<string[]>([])
+  const [userOverride, setUserOverride] = useState(false)
+  const [scopeOpen, setScopeOpen] = useState(false)
   const [tocCollapsed, setTocCollapsed] = useState(false)
   const [deepThinking, setDeepThinking] = useState(() => localStorage.getItem('sonolex-deep-thinking') !== 'false')
   const [generatingTutorial, setGeneratingTutorial] = useState(false)
@@ -136,13 +140,66 @@ export function ChatPage() {
     }
   }
 
-  // Load device names for TOC topic extraction
+  // Load manuals (titles for TOC, ids+titles for scope picker)
   useEffect(() => {
     fetch('/api/manuals')
       .then(res => res.ok ? res.json() : [])
-      .then((manuals: { title: string }[]) => setDeviceNames(manuals.map(m => m.title)))
+      .then((manuals: Array<{ id: string; title: string }>) => {
+        setDeviceNames(manuals.map(m => m.title))
+        setAllManuals(manuals.map(m => ({ id: m.id, title: m.title })))
+      })
       .catch(() => {})
   }, [])
+
+  const loadSessionInfo = useCallback(async () => {
+    if (!sessionId) return
+    try {
+      const res = await fetch(`/api/chat/sessions/${sessionId}`)
+      if (res.ok) {
+        const info = (await res.json()) as {
+          manualIdsInScope?: string[]
+          userOverrideOfManuals?: boolean
+        }
+        setScopeManualIds(info.manualIdsInScope ?? [])
+        setUserOverride(Boolean(info.userOverrideOfManuals))
+      }
+    } catch {
+      // Ignore
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    loadSessionInfo()
+  }, [loadSessionInfo])
+
+  async function persistScope(nextIds: string[], nextOverride: boolean) {
+    if (!sessionId) return
+    setScopeManualIds(nextIds)
+    setUserOverride(nextOverride)
+    try {
+      await fetch(`/api/chat/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          manualIdsInScope: nextIds,
+          userOverrideOfManuals: nextOverride,
+        }),
+      })
+    } catch {
+      // Best-effort; UI already reflects the change optimistically
+    }
+  }
+
+  function toggleScopeManual(id: string) {
+    const next = scopeManualIds.includes(id)
+      ? scopeManualIds.filter(x => x !== id)
+      : [...scopeManualIds, id]
+    persistScope(next, true)
+  }
+
+  function resetScopeToAuto() {
+    persistScope([], false)
+  }
 
   const loadHistory = useCallback(async () => {
     if (!sessionId) return
@@ -259,6 +316,8 @@ export function ChatPage() {
     } finally {
       setSending(false)
       setStreaming(null)
+      // Server may have auto-extended scope from device mentions this turn
+      loadSessionInfo()
     }
   }
 
@@ -366,6 +425,64 @@ export function ChatPage() {
                 />
                 Deep thinking
               </label>
+              <div className="chat-scope-picker">
+                <button
+                  type="button"
+                  className="chat-scope-trigger"
+                  onClick={() => setScopeOpen(o => !o)}
+                  title={userOverride ? 'Manuals are pinned to your selection' : 'Manuals auto-track from chat'}
+                >
+                  <span className={`chat-scope-mode${userOverride ? ' pinned' : ''}`}>
+                    {userOverride ? '📌' : '🔎'}
+                  </span>
+                  <span className="chat-scope-label">
+                    {scopeManualIds.length === 0
+                      ? userOverride
+                        ? 'No manuals'
+                        : 'Auto'
+                      : scopeManualIds.length === 1
+                        ? allManuals.find(m => m.id === scopeManualIds[0])?.title ?? '1 manual'
+                        : `${scopeManualIds.length} manuals`}
+                  </span>
+                  <span aria-hidden>▾</span>
+                </button>
+                {scopeOpen && (
+                  <div className="chat-scope-menu" role="dialog" aria-label="Manuals in scope">
+                    <div className="chat-scope-menu-head">
+                      <strong>Manuals in scope</strong>
+                      <button
+                        type="button"
+                        className="chat-scope-reset"
+                        onClick={() => { resetScopeToAuto(); setScopeOpen(false) }}
+                        disabled={!userOverride && scopeManualIds.length === 0}
+                      >
+                        Reset to auto
+                      </button>
+                    </div>
+                    {allManuals.length === 0 ? (
+                      <p className="chat-scope-empty">No manuals uploaded yet.</p>
+                    ) : (
+                      <ul className="chat-scope-list">
+                        {allManuals.map(m => {
+                          const checked = scopeManualIds.includes(m.id)
+                          return (
+                            <li key={m.id}>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleScopeManual(m.id)}
+                                />
+                                <span>{m.title}</span>
+                              </label>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
               <textarea
                 ref={textareaRef}
                 className="chat-input"

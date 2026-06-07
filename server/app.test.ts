@@ -616,7 +616,7 @@ describe('API routes', () => {
       expect(res.status).toBe(404)
     })
 
-    it('returns 400 when no name provided', async () => {
+    it('returns 400 when no fields are provided', async () => {
       const session = await createSession()
 
       const res = await request(app)
@@ -625,6 +625,58 @@ describe('API routes', () => {
         .set('Content-Type', 'application/json')
 
       expect(res.status).toBe(400)
+    })
+
+    it('sets manual scope and override flag together', async () => {
+      const session = await createSession()
+      await storage.saveManual(createManual({ id: 'oxi-one', title: 'OXI ONE MKII', content: 'x' }))
+
+      const res = await request(app)
+        .patch(`/api/chat/sessions/${session.id}`)
+        .send({ manualIdsInScope: ['oxi-one'], userOverrideOfManuals: true })
+        .set('Content-Type', 'application/json')
+      expect(res.status).toBe(200)
+
+      const getRes = await request(app).get(`/api/chat/sessions/${session.id}`)
+      expect(getRes.body.manualIdsInScope).toEqual(['oxi-one'])
+      expect(getRes.body.userOverrideOfManuals).toBe(true)
+    })
+
+    it('allows renaming and updating scope in the same request', async () => {
+      const session = await createSession('Old')
+      await request(app)
+        .patch(`/api/chat/sessions/${session.id}`)
+        .send({ name: 'New', manualIdsInScope: ['oxi-one'], userOverrideOfManuals: true })
+        .set('Content-Type', 'application/json')
+
+      const list = await request(app).get('/api/chat/sessions')
+      expect(list.body[0].name).toBe('New')
+      expect(list.body[0].manualIdsInScope).toEqual(['oxi-one'])
+    })
+
+    it('rejects when scope is supplied without userOverrideOfManuals', async () => {
+      const session = await createSession()
+
+      const res = await request(app)
+        .patch(`/api/chat/sessions/${session.id}`)
+        .send({ manualIdsInScope: ['oxi-one'] })
+        .set('Content-Type', 'application/json')
+      expect(res.status).toBe(400)
+    })
+  })
+
+  describe('GET /api/chat/sessions/:id', () => {
+    it('returns the session info', async () => {
+      const session = await createSession('My Chat')
+      const res = await request(app).get(`/api/chat/sessions/${session.id}`)
+      expect(res.status).toBe(200)
+      expect(res.body.id).toBe(session.id)
+      expect(res.body.name).toBe('My Chat')
+    })
+
+    it('returns 404 for unknown id', async () => {
+      const res = await request(app).get('/api/chat/sessions/missing')
+      expect(res.status).toBe(404)
     })
   })
 

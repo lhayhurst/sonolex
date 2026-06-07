@@ -86,6 +86,40 @@ export class ChatSessionManager {
     }
   }
 
+  async extendScope(id: string, manualIds: string[]): Promise<boolean> {
+    const info = this.index.find(s => s.id === id)
+    if (!info) return false
+    if (info.userOverrideOfManuals) return true
+
+    const current = info.manualIdsInScope ?? []
+    const merged = [...current]
+    for (const mid of manualIds) {
+      if (!merged.includes(mid)) merged.push(mid)
+    }
+    if (merged.length === current.length) return true
+
+    info.manualIdsInScope = merged
+    await this.saveIndex()
+    return true
+  }
+
+  async setScope(
+    id: string,
+    scope: { manualIdsInScope: string[]; userOverrideOfManuals: boolean },
+  ): Promise<boolean> {
+    const info = this.index.find(s => s.id === id)
+    if (!info) return false
+
+    info.manualIdsInScope = [...scope.manualIdsInScope]
+    info.userOverrideOfManuals = scope.userOverrideOfManuals
+    await this.saveIndex()
+    return true
+  }
+
+  getInfo(id: string): ChatSessionInfo | undefined {
+    return this.index.find(s => s.id === id)
+  }
+
   private async loadIndex(): Promise<void> {
     try {
       const raw = await readFile(this.indexPath, 'utf-8')

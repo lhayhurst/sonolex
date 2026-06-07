@@ -214,4 +214,66 @@ describe('ChatSessionManager', () => {
       expect(sessions[0].name).toBe('Existing')
     })
   })
+
+  describe('manual scope tracking', () => {
+    it('new sessions start with empty scope and no user override', async () => {
+      const session = await manager.createSession('Scope test')
+      expect(session.manualIdsInScope ?? []).toEqual([])
+      expect(session.userOverrideOfManuals ?? false).toBe(false)
+    })
+
+    it('extendScope adds new manual ids to the session scope', async () => {
+      const session = await manager.createSession('Scope test')
+      await manager.extendScope(session.id, ['oxi-one', 'spitfire-felt'])
+
+      const sessions = await manager.listSessions()
+      const updated = sessions.find(s => s.id === session.id)!
+      expect(updated.manualIdsInScope).toEqual(['oxi-one', 'spitfire-felt'])
+    })
+
+    it('extendScope deduplicates and preserves prior entries', async () => {
+      const session = await manager.createSession('Scope test')
+      await manager.extendScope(session.id, ['oxi-one'])
+      await manager.extendScope(session.id, ['oxi-one', 'spitfire-felt'])
+
+      const updated = (await manager.listSessions()).find(s => s.id === session.id)!
+      expect(updated.manualIdsInScope).toEqual(['oxi-one', 'spitfire-felt'])
+    })
+
+    it('extendScope is a no-op when the session has user override enabled', async () => {
+      const session = await manager.createSession('Scope test')
+      await manager.setScope(session.id, { manualIdsInScope: ['oxi-one'], userOverrideOfManuals: true })
+      await manager.extendScope(session.id, ['spitfire-felt'])
+
+      const updated = (await manager.listSessions()).find(s => s.id === session.id)!
+      expect(updated.manualIdsInScope).toEqual(['oxi-one'])
+      expect(updated.userOverrideOfManuals).toBe(true)
+    })
+
+    it('setScope replaces the scope and persists across re-init', async () => {
+      const session = await manager.createSession('Scope test')
+      await manager.setScope(session.id, { manualIdsInScope: ['a', 'b'], userOverrideOfManuals: true })
+
+      const fresh = new ChatSessionManager(tempDir)
+      await fresh.init()
+      const reloaded = (await fresh.listSessions()).find(s => s.id === session.id)!
+      expect(reloaded.manualIdsInScope).toEqual(['a', 'b'])
+      expect(reloaded.userOverrideOfManuals).toBe(true)
+    })
+
+    it('setScope with userOverrideOfManuals=false clears the override flag', async () => {
+      const session = await manager.createSession('Scope test')
+      await manager.setScope(session.id, { manualIdsInScope: ['a'], userOverrideOfManuals: true })
+      await manager.setScope(session.id, { manualIdsInScope: [], userOverrideOfManuals: false })
+
+      const updated = (await manager.listSessions()).find(s => s.id === session.id)!
+      expect(updated.manualIdsInScope).toEqual([])
+      expect(updated.userOverrideOfManuals).toBe(false)
+    })
+
+    it('returns false from setScope / extendScope for unknown session', async () => {
+      expect(await manager.extendScope('nope', ['x'])).toBe(false)
+      expect(await manager.setScope('nope', { manualIdsInScope: ['x'], userOverrideOfManuals: false })).toBe(false)
+    })
+  })
 })

@@ -356,4 +356,103 @@ describe('ChatPage', () => {
     )
     expect(postCalls).toHaveLength(0)
   })
+
+  describe('scope picker', () => {
+    function setupFetch(opts?: {
+      manuals?: Array<{ id: string; title: string }>
+      session?: { manualIdsInScope?: string[]; userOverrideOfManuals?: boolean }
+      onPatch?: (body: unknown) => void
+    }) {
+      const manuals = opts?.manuals ?? [
+        { id: 'oxi-one', title: 'OXI ONE MKII' },
+        { id: 'monolit', title: 'Monolit 2.0' },
+      ]
+      const session = opts?.session ?? { manualIdsInScope: [], userOverrideOfManuals: false }
+      global.fetch = vi.fn().mockImplementation((url: string, fetchOpts?: RequestInit) => {
+        if (url === '/api/manuals') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(manuals) })
+        }
+        if (url === '/api/chat/sessions/test-session-1' && (!fetchOpts || fetchOpts.method === 'GET' || fetchOpts.method === undefined)) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(session) })
+        }
+        if (url === '/api/chat/sessions/test-session-1' && fetchOpts?.method === 'PATCH') {
+          opts?.onPatch?.(JSON.parse(fetchOpts.body as string))
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+      })
+    }
+
+    it('shows "Auto" by default when scope is empty and not overridden', async () => {
+      setupFetch()
+      renderWithSession()
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /auto/i })).toBeInTheDocument()
+      })
+    })
+
+    it('shows the manual title when a single manual is in scope', async () => {
+      setupFetch({ session: { manualIdsInScope: ['oxi-one'], userOverrideOfManuals: false } })
+      renderWithSession()
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /OXI ONE MKII/i })).toBeInTheDocument()
+      })
+    })
+
+    it('opens a list of all manuals when clicked', async () => {
+      setupFetch()
+      renderWithSession()
+
+      const trigger = await screen.findByRole('button', { name: /auto/i })
+      fireEvent.click(trigger)
+
+      await waitFor(() => {
+        expect(screen.getByText('OXI ONE MKII')).toBeInTheDocument()
+        expect(screen.getByText('Monolit 2.0')).toBeInTheDocument()
+      })
+    })
+
+    it('PATCHes scope with override=true when a manual is checked', async () => {
+      let patched: unknown = null
+      setupFetch({ onPatch: body => { patched = body } })
+      renderWithSession()
+
+      const trigger = await screen.findByRole('button', { name: /auto/i })
+      fireEvent.click(trigger)
+
+      const checkbox = await screen.findByLabelText('OXI ONE MKII')
+      fireEvent.click(checkbox)
+
+      await waitFor(() => {
+        expect(patched).toEqual({
+          manualIdsInScope: ['oxi-one'],
+          userOverrideOfManuals: true,
+        })
+      })
+    })
+
+    it('Reset to auto PATCHes empty scope with override=false', async () => {
+      let patched: unknown = null
+      setupFetch({
+        session: { manualIdsInScope: ['oxi-one'], userOverrideOfManuals: true },
+        onPatch: body => { patched = body },
+      })
+      renderWithSession()
+
+      const trigger = await screen.findByRole('button', { name: /OXI ONE MKII/i })
+      fireEvent.click(trigger)
+
+      const reset = await screen.findByRole('button', { name: /reset to auto/i })
+      fireEvent.click(reset)
+
+      await waitFor(() => {
+        expect(patched).toEqual({
+          manualIdsInScope: [],
+          userOverrideOfManuals: false,
+        })
+      })
+    })
+  })
 })
